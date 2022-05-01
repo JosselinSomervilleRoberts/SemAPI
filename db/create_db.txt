@@ -1,0 +1,75 @@
+CREATE TABLE words (
+	word_id serial PRIMARY KEY,
+	lang VARCHAR ( 2 ) DEFAULT 'fr' NOT NULL,
+	word VARCHAR ( 15 ) NOT NULL,
+	UNIQUE (lang, word),
+	word_na VARCHAR ( 15 ),
+	corrected VARCHAR ( 15 ),
+	corrected_na VARCHAR ( 15 ),
+	lemma VARCHAR ( 15 ),
+	vector FLOAT ARRAY[300] NOT NULL
+);
+
+CREATE TABLE sessions (
+	session_id serial PRIMARY KEY,
+	word_id serial NOT NULL,
+	lang VARCHAR ( 2 ) DEFAULT 'fr' NOT NULL,
+	utc_start bigserial,
+	utc_stop bigserial,
+	difficulty smallint DEFAULT 1,
+	
+	CONSTRAINT fk_words
+  	    	FOREIGN KEY(word_id)
+			REFERENCES words(word_id )
+			ON DELETE CASCADE
+);
+
+CREATE TABLE session_data (
+	session_data_id serial PRIMARY KEY,
+	session_id serial NOT NULL,
+	user_id serial NOT NULL,
+	UNIQUE (session_id , user_id),
+	best_score FLOAT DEFAULT 0 NOT NULL,
+	number_guesses integer DEFAULT 0 NOT NULL,
+	
+	CONSTRAINT fk_sessions
+      		FOREIGN KEY(session_id)
+	  		REFERENCES sessions(session_id )
+				ON DELETE CASCADE
+);
+
+CREATE TABLE closest_words (
+	id serial PRIMARY KEY,
+	session_id serial NOT NULL,
+	word_id serial NOT NULL,
+	UNIQUE (session_id , word_id),
+	score FLOAT DEFAULT 1 NOT NULL,
+
+	CONSTRAINT fk_words
+      		FOREIGN KEY(word_id)
+	  		REFERENCES words(word_id )
+				ON DELETE CASCADE,
+
+	CONSTRAINT fk_sessions
+      		FOREIGN KEY(session_id)
+	  		REFERENCES sessions(session_id )
+				ON DELETE CASCADE
+);
+
+CREATE TABLE distances (
+	score_id serial PRIMARY KEY,
+	session_id serial NOT NULL,
+	word_id serial NOT NULL,
+	UNIQUE (session_id , word_id),
+	distance FLOAT DEFAULT 0 NOT NULL,
+
+	CONSTRAINT fk_words
+      		FOREIGN KEY(word_id)
+	  		REFERENCES words(word_id )
+				ON DELETE CASCADE,
+
+	CONSTRAINT fk_sessions
+      		FOREIGN KEY(session_id)
+	  		REFERENCES sessions(session_id )
+				ON DELETE CASCADE
+);
