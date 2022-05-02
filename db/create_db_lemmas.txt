@@ -1,7 +1,7 @@
 CREATE TABLE lemmas (
 	lemma_id serial PRIMARY KEY,
-	lemma VARCHAR (20) NOT NULL,
-	lemma_na VARCHAR (20) NOT NULL,
+	lemma VARCHAR (32) NOT NULL,
+	lemma_na VARCHAR (32) NOT NULL,
     type VARCHAR(8),
     UNIQUE(lemma, type),
 	freq FLOAT DEFAULT 0,
@@ -11,12 +11,12 @@ CREATE TABLE lemmas (
 CREATE TABLE orthos (
     ortho_id serial PRIMARY KEY,
     lemma_id serial NOT NULL,
-	ortho VARCHAR (24) UNIQUE NOT NULL,
-	ortho_na VARCHAR (24) NOT NULL,
+	ortho VARCHAR (32) UNIQUE NOT NULL,
+	ortho_na VARCHAR (32) NOT NULL,
     freq FLOAT DEFAULT 0,
     genre VARCHAR (2) DEFAULT '',
     number VARCHAR (2) DEFAULT '',
-    nb_syll SMALLINT NOT NULL,
+    nb_syll SMALLINT,
     nb_letters SMALLINT NOT NULL,
 	vector FLOAT ARRAY[300] NOT NULL,
 

@@ -5,29 +5,25 @@ Created on Sat Apr 30 20:09:22 2022
 @author: josse
 """
 
-
-import spacy
-from spacy_lefff import LefffLemmatizer
-from spacy.language import Language
-from spellchecker import SpellChecker
 import unicodedata
-import re
-from gensim.models.keyedvectors import KeyedVectors
+#import re
 
 
-word_vectors = None
+ft = None
 spell = None
 nlp = None
 
 # Embedder
 def load_gensim():
-    global word_vectors
-    if word_vectors is None:
+    global ft
+    import fasttext
+    if ft is None:
         print("Loading embeddings... May take a while.")
-        word_vectors = KeyedVectors.load_word2vec_format('wiki.fr.vec')
+        ft = fasttext.load_model('C:\\Users\\josse\\Documents\\Cemantix\\SemAPI\\data\\wiki.fr.bin')
 
 # Spellchecker
 def load_spellchecker():
+    from spellchecker import SpellChecker
     global spell
     if spell is None:
         print("Loading spellchecker...")
@@ -36,6 +32,9 @@ def load_spellchecker():
 # Lemmatizer
 def load_lemmatizer():
     global nlp
+    import spacy
+    from spacy_lefff import LefffLemmatizer
+    from spacy.language import Language
     if nlp is None:
         print("Loading lemmatizer...")
         try:
@@ -50,7 +49,7 @@ def load_lemmatizer():
 def remove_accents(word):
     nfkd_form = unicodedata.normalize('NFKD', word)
     only_ascii = nfkd_form.encode('ASCII', 'ignore')
-    return only_ascii.decode("utf-8")
+    return only_ascii.decode("utf-8").replace(' ', '').replace('\'', '').replace('-', '').lower()
 
 def lemmatize(word):
     global nlp
@@ -88,11 +87,11 @@ def words_too_similar(w1, w2):
 
 
 def gensim_get_vector(w):
-    global word_vectors
+    global ft
     load_gensim()
-    return word_vectors.wv.get_vector(w)
+    return ft.get_word_vector(w)
 
 def gensim_get_similar(w, count = 100):
-    global word_vectors
+    global ft
     load_gensim()
-    return word_vectors.similar_by_word(w, count)
+    return ft.get_nearest_neighbors(w, count)
