@@ -9,9 +9,10 @@ import random
 import os
 from dotenv import load_dotenv
 from word_utils import correct
-
+from flask_cors import CORS
 
 app = flask.Flask(__name__)
+CORS(app)
 dm = None
 db = None
 
@@ -88,19 +89,20 @@ def score():
                         word_object.load_like_word(db, word_corrected)
                         word_corrected = word_object.ortho
                     except:
-                        return jsonify({"user_id": user_id, "session_id": session_id, "error": "404", "word": word, "score": -1}), 200
+                        return jsonify({"user_id": user_id, "session_id": session_id, "word": word, "score": -1}), 404
         else:
             try:
                 word_object.load_like_word(db, word)
                 word_corrected = word_object.ortho
             except:
-                return jsonify({"user_id": user_id, "session_id": session_id, "error": "404", "word": word, "score": -1}), 200
+                return jsonify({"user_id": user_id, "session_id": session_id, "word": word, "score": -1}), 404
 
     # Everything was fetched properly, let's compute the score
     score = word_object.compute_rectified_score(baseline)
     res = {}
     res['user_id'] = user_id
     res['session_id'] = session_id
+    status = 200
 
     if word_corrected is None:
         res['word'] = word_object.ortho
@@ -110,8 +112,9 @@ def score():
         res['score'] = -1
         res['suggested_word'] = word_object.ortho
         res['suggested_score'] = score
+        status = 201
 
-    return jsonify(res), 200
+    return jsonify(res), status
 
 
 @app.route('/hint', methods=['GET'])
