@@ -11,6 +11,14 @@ class Lemma:
         self.freq = 0
         self.vector = None
 
+    def load_from_json(self, data):
+        self.id = data['id']
+        self.lemma = data['lemma']
+        self.lemma_na = data['lemma_na']
+        self.type = data['type']
+        self.freq = data['freq']
+        self.vector = data['vector']
+
     def load_from_db_res(self, db):
         res = db.cursor.fetchone()
         if res is None:

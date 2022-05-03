@@ -35,6 +35,21 @@ class Ortho:
         self.neighbors = None
         self.ref_score = 0
 
+    def load_from_json(self, data):
+        self.id = data['id']
+        self.ortho = data['ortho']
+        self.ortho_na = data['ortho_na']
+        self.freq = data['freq']
+        self.number = data['number']
+        self.genre = data['genre']
+        self.nb_syll = data['nb_syll']
+        if not self.nb_syll is None:
+            self.nb_syll = int(self.nb_syll)
+        self.nb_letters = data['nb_letters']
+        self.vector = data['vector']
+        self.lemma = Lemma()
+        self.lemma.load_from_json(data['lemma'])
+
     def load_from_db_res(self, db):
         res = db.cursor.fetchone()
         if res is None:
@@ -42,21 +57,22 @@ class Ortho:
         self.id = res[0]
         self.ortho = res[1]
         self.ortho_na = res[2]
-        self.lemma = Lemma()
-        self.lemma.load_from_id(db, res[3])
-        self.freq = float(res[4])
-        self.number = res[5]
-        self.genre = res[6]
-        self.nb_syll = res[7]
+        self.freq = float(res[3])
+        self.number = res[4]
+        self.genre = res[5]
+        self.nb_syll = res[6]
         if not self.nb_syll is None:
             self.nb_syll = int(self.nb_syll)
-        self.nb_letters = int(res[8])
-        self.vector = np.array(res[9])
+        self.nb_letters = int(res[7])
+        self.vector = np.array(res[8])
+        self.lemma = Lemma()
+        if len(res) > 9:      
+            self.lemma.load_from_id(db, res[9])
 
     def load_from_id(self, db, id):
         if id is None:
             raise Exception("Cannot load Ortho from id if the id is not set. (id: %d)" % (id))
-        db.cursor.execute("""SELECT ortho_id, ortho, ortho_na, lemma_id, freq, number, genre, nb_syll, nb_letters, vector
+        db.cursor.execute("""SELECT ortho_id, ortho, ortho_na, freq, number, genre, nb_syll, nb_letters, vector, lemma_id
                             FROM public.orthos 
                             WHERE ortho_id = %s""",
                             (id,))
@@ -66,7 +82,7 @@ class Ortho:
         word_na = remove_accents(word)
         if word is None:
             raise Exception("Cannot load Ortho from word if word is not set. (word: %s)" % (word))
-        db.cursor.execute("""SELECT ortho_id, ortho, ortho_na, lemma_id, freq, number, genre, nb_syll, nb_letters, vector
+        db.cursor.execute("""SELECT ortho_id, ortho, ortho_na, freq, number, genre, nb_syll, nb_letters, vector, lemma_id
                             FROM public.orthos 
                             WHERE ortho_na = %s""",
                             (word_na,))
@@ -76,7 +92,7 @@ class Ortho:
         word_na = remove_accents(word)
         if word is None:
             raise Exception("Cannot load Ortho like word if word is not set. (word: %s)" % (word))
-        db.cursor.execute("""SELECT ortho_id, ortho, ortho_na, lemma_id, freq, number, genre, nb_syll, nb_letters, vector
+        db.cursor.execute("""SELECT ortho_id, ortho, ortho_na, freq, number, genre, nb_syll, nb_letters, vector, lemma_id
                             FROM public.orthos 
                             WHERE ortho_na LIKE = %s
                             ORDER BY freq  DESC LIMIT 1""",
@@ -92,17 +108,22 @@ class Ortho:
 
         while len(res) > 0:
             print(".", end="")
-            db.cursor.execute("""SELECT ortho_id 
-                                FROM public.orthos 
+            db.cursor.execute("""SELECT ortho_id, ortho, ortho_na, o.freq, number, genre, nb_syll, nb_letters, o.vector, 
+                                l.lemma_id, lemma, lemma_na, type, l.freq, l.vector
+                                FROM public.orthos AS o
+                                JOIN lemmas AS l ON l.lemma_id = o.lemma_id
                                 WHERE ortho_id > %s 
                                 ORDER BY ortho_id ASC LIMIT %s""",
                                 (last_id, LIMIT))
             res = db.cursor.fetchall()
         
             for row in res:
-                last_id = row[0]
+                last_id = int(row[0])
+                data = {"id": int(row[0]), "ortho": row[1], "ortho_na": row[2], "freq": float(row[3]), "number": row[4],
+                "genre": row[5], "nb_syll": row[6], "nb_letters": int(row[7]), "vector": np.array(row[8]),
+                "lemma": {"id": int(row[9]), "lemma": row[10], "lemma_na": row[11], "type": row[12], "freq": float(row[13]), "vector": np.array(row[14])}}
                 word = Ortho()
-                word.load_from_id(db, last_id)
+                word.load_from_json(data)
                 words.append(word)
         print("")
         return words
