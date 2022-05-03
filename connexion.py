@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
 import psycopg2
-import numpy as np
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class DbConnexion:
 
     def __init__(self):
-        self.HOST = "localhost"
-        self.USER = "postgres"
-        self.PASSWORD = "admin"
+        self.HOST = os.getenv('DB_HOST')
+        self.USER = os.getenv('DB_USER')
+        self.PASSWORD = os.getenv('DB_PASSWORD')
         self.DATABASE = "word2vec"
         self.connexion = None
         self.cursor = None
