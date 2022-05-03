@@ -3,8 +3,6 @@ import psycopg2
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
-
 class DbConnexion:
 
     def __init__(self):

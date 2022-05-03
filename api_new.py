@@ -6,6 +6,10 @@ from connexion import DbConnexion
 from ortho import Ortho
 from datetime import datetime
 import random
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from word_utils import correct
 
@@ -159,4 +163,4 @@ def hint():
     # No hint was found, this is not normal
     return "Internal error: No clue found.", 500
 
-app.run()
+app.run(port=os.getenv('API_PORT'))
