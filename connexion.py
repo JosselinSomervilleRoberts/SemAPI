@@ -21,4 +21,8 @@ class DbConnexion:
         self.connexion.commit()
         self.connexion.close()
 
+    def rollback(self):
+        self.cursor.execute("ROLLBACK")
+        self.connexion.commit()
+
     

@@ -28,6 +28,7 @@ def session_id():
     try:
         session_id = current_session_id()
     except Exception as e:
+        db.rollback()
         return 'Internal error: could not get session id. %s' % e, 500
     res = {}
     res['session_id'] = session_id
@@ -60,11 +61,13 @@ def score():
         try:
             session_id = current_session_id()
         except Exception as e:
+            db.rollback()
             return 'Internal error: could not get session id. %s' %e, 500
     baseline = None
     try:
         baseline = dm.get_session_infos(db, session_id)['word']
     except Exception as e:
+        db.rollback()
         return 'Internal error: baseline not found. %s' %e, 500
         
     # Load the word
@@ -81,20 +84,24 @@ def score():
                 word_object.load_from_word(db, word_corrected)
                 word_corrected = word_object.ortho
             except: # No correction available
+                db.rollback()
                 try:
                     word_object.load_like_word(db, word)
                     word_corrected = word_object.ortho
                 except:
+                    db.rollback()
                     try:
                         word_object.load_like_word(db, word_corrected)
                         word_corrected = word_object.ortho
                     except:
+                        db.rollback()
                         return jsonify({"user_id": user_id, "session_id": session_id, "word": word, "score": -1}), 404
         else:
             try:
                 word_object.load_like_word(db, word)
                 word_corrected = word_object.ortho
             except:
+                db.rollback()
                 return jsonify({"user_id": user_id, "session_id": session_id, "word": word, "score": -1}), 404
 
     # Everything was fetched properly, let's compute the score
@@ -139,7 +146,7 @@ def hint():
 
     # Check that the user does not ask for the solution
     if value > 0.9:
-        return jsonify({"user_id": user_id, "session_id": session_id, "error": "No clues available after 0.9."}), 200
+        return jsonify({"user_id": user_id, "session_id": session_id, "error": "No clue available after 0.9."}), 201
 
     # Find the hints
     hints = None
@@ -149,7 +156,8 @@ def hint():
         baseline = res["word"]
         hints = res['hints']
     except Exception as e:
-        return 'Internal error: hints not found. %s' %e, 500
+        db.rollback()
+        return 'Internal error: baseline not found. %s' %e, 500
 
     # Return the closest hint
     for score in hints.keys():
@@ -159,7 +167,7 @@ def hint():
             return jsonify({"user_id": user_id, "session_id": session_id, "word": hint.ortho, "score": real_score}), 200
 
     # No hint was found, this is not normal
-    return "Internal error: No clue found.", 500
+    return "Internal error: No clue found.", 404
 
 
 

@@ -1,0 +1,227 @@
+openapi: 3.0.0
+
+info:
+  title: Word2Vec API
+  description: 'API for scoring words. This is based on word2vec but **does not use any realtime embedding, only SQL querries**. The dataset was built upon the following sources:
+   
+   - *wiki.fr.bin* - Encoding of french words: <https://fasttext.cc/docs/en/pretrained-vectors.html>
+
+   - *Lexique 3.83* - French words with lemmas and other usefu info: <http://www.lexique.org>
+
+   - *Pantheon 1.0* - Famous people: <https://dataverse.harvard.edu/file.xhtml?persistentId=doi:10.7910/DVN/28201/VEG34D&version=1.0>
+
+   - French cities: <https://sql.sh/736-base-donnees-villes-francaises>
+   
+   - Countries and capitals: <https://www.data.gouv.fr/en/datasets/etats-et-capitales-du-monde/>'
+  version: 1.0.0
+
+servers:
+  - url: http://127.0.0.1:9696
+    description: Local
+  - url: https://msts.astrinov.com
+    description: Philippe's server
+
+paths:
+  /session-id:
+    get:
+      tags: 
+        - Session
+      summary: Returns the current session id.
+      description: Uses UTC time to get the session_id corresponding to the wor dof the day in the GMT+1 timezone.
+      responses:
+        '200':    # status code
+          description: A JSON array of user names
+          content:
+            application/json:
+              schema: 
+                type: object
+                properties:
+                  session_id:
+                    type: integer
+                    example: 12
+
+  /score:
+    get:
+      tags: 
+        - Score
+      summary: Returns a score between 0 and 1 for a given word.
+      parameters:
+        - in: query
+          name: word
+          required: true
+          schema:
+            type: string
+          description: Word to score
+        - in: query
+          name: session_id
+          required: false
+          schema:
+            type: integer
+          description: Current session (to know the word to guess). If not set, the current session wil be used (just like GET /session-id).
+        - in: query
+          name: user_id
+          required: false
+          schema:
+            type: string
+          description: ID of the user (CURRENTLY UNUSED)
+        - in: query
+          name: correction
+          required: false
+          schema:
+            type: boolean
+            default: true
+          description: Boolean to chose if the API should check spelling or not. (NOT WORKING CURRENTLY AND IGNORED)
+      responses:
+        '200':    # status code
+          description: The word is correct and a score is returned
+          content:
+            application/json:
+              schema: 
+                type: object
+                properties:
+                  session_id:
+                    type: integer
+                    example: 12
+                  user_id:
+                    type: integer
+                    example: 564
+                  word:
+                    type: string
+                    example: banane
+                  score:
+                    type: number
+                    example: 0.93645
+        
+        '201':    # status code
+          description: The word is not correct but a suggestion was made
+          content:
+            application/json:
+              schema: 
+                type: object
+                properties:
+                  session_id:
+                    type: integer
+                    example: 12
+                  user_id:
+                    type: integer
+                    example: 564
+                  word:
+                    type: string
+                    example: banene
+                  score:
+                    type: number
+                    default: -1
+                  suggested_word:
+                    type: string
+                    example: banane
+                  suggested_score:
+                    type: number
+                    example: 0.93645
+
+        '404':    # status code
+          description: The word is not correct and not correction exist or the parameter correction was set to false.
+          content:
+            application/json:
+              schema: 
+                type: object
+                properties:
+                  session_id:
+                    type: integer
+                    example: 12
+                  user_id:
+                    type: integer
+                    example: 564
+                  word:
+                    type: string
+                    example: banene
+                  score:
+                    type: number
+                    default: -1
+
+        '500':    # status code
+          description: No session-id was found or no word were found associated to it.
+          content:
+            application/json:
+              schema: 
+                type: string
+                default: "Internal error: baseline not found."
+
+  /hint:
+    get:
+      tags: 
+        - Hints
+      summary: Returns a word with a better score than the precised value.
+      parameters:
+        - in: query
+          name: value
+          required: true
+          schema:
+            type: number
+            example: 0.6
+          description: Value to beat
+        - in: query
+          name: session_id
+          required: true
+          schema:
+            type: integer
+          description: Current session (to know the word to guess). If not set, the current session wil be used (just like GET /session-id).
+        - in: query
+          name: user_id
+          required: false
+          schema:
+            type: string
+          description: ID of the user (CURRENTLY UNUSED)
+      responses:
+        '200':    # status code
+          description: A satisfying hint was found.
+          content:
+            application/json:
+              schema: 
+                type: object
+                properties:
+                  session_id:
+                    type: integer
+                    example: 12
+                  user_id:
+                    type: integer
+                    example: 564
+                  word:
+                    type: string
+                    example: banane
+                  score:
+                    type: number
+                    example: 0.93645
+        
+        '201':    # status code
+          description: The value asked for is too big (must be lower or equal than 0.9)
+          content:
+            application/json:
+              schema: 
+                type: object
+                properties:
+                  session_id:
+                    type: integer
+                    example: 12
+                  user_id:
+                    type: integer
+                    example: 564
+                  error:
+                    type: string
+                    default: No clue available after 0.9.
+
+        '404':    # status code
+          description: The session-id is correct but no satisfying clue was found.
+          content:
+            application/json:
+              schema: 
+                type: string
+                default: "Internal error: No clue found."
+
+        '500':    # status code
+          description: There are no word associated to the sesssion-id.
+          content:
+            application/json:
+              schema: 
+                type: string
+                default: "Internal error: baseline not found."
+
