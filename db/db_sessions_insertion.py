@@ -18,7 +18,7 @@ with open(file_name, "r", encoding="utf8") as f:
     for line in tqdm(f.readlines()):
         if True:
             word = line.replace('\n', '')
-            print("INSERTIONG %s ..." % word)
+            print("INSERTING %s ..." % word)
             word_object = Ortho()
             word_object.load_from_word(db, word)
 
@@ -43,6 +43,7 @@ with open(file_name, "r", encoding="utf8") as f:
                 raise Exception("Session id not found.")
             session_id = int(res[0])
 
+            print(word, "->", neighbors)
             for neighbor in neighbors:
                 try:
                     db.cursor.execute("""INSERT INTO public.closest_words (session_id, ortho_id, score) 

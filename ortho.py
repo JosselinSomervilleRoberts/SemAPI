@@ -12,7 +12,7 @@ def distance_embeddings(emb1, emb2):
     return distance.cosine(emb1, emb2)
 
 def naive_score_embeddings(emb1, emb2):
-    return 1 - distance_embeddings(emb1, emb2)
+    return max(0, 1 - abs(distance_embeddings(emb1, emb2)))
 
 class Ortho:
 
@@ -167,8 +167,8 @@ class Ortho:
             return Ortho.SCORE_MAX_NEIGHBOR + (1.0 - Ortho.SCORE_MAX_NEIGHBOR) * Ortho.sim_same_lemma(self, baseline)
         
         N_neighbors = len(baseline.neighbors)
-        min_neighbor = baseline.neighbors[-1].ref_score
-        max_neighbor = baseline.neighbors[0].ref_score
+        min_neighbor = baseline.neighbors[0].ref_score
+        max_neighbor = baseline.neighbors[-1].ref_score
         for neighbor in baseline.neighbors:
             if Ortho.similar(self, neighbor):
                 x = neighbor.ref_score - (Ortho.SCORE_MAX_NEIGHBOR - Ortho.SCORE_MIN_NEIGHBOR) / float(N_neighbors - 1.0)  * (1 - Ortho.sim_same_lemma(self, neighbor))
@@ -184,17 +184,14 @@ class Ortho:
 
 
     def add_neighbor_if_not_too_similar(self, neighbor):
-        score = neighbor.ref_score
-
         # Remove non words
-        # word = word.lower()
         if not(isword(neighbor.ortho)):
             return
 
         # Update existing neighbors
         for i in range(len(self.neighbors)):
             if Ortho.similar(neighbor, self.neighbors[i]):
-                if score > self.neighbors[i].ref_score:
+                if neighbor.ref_score > self.neighbors[i].ref_score:
                     self.neighbors[i] = neighbor
                 return
 
@@ -211,7 +208,7 @@ class Ortho:
             word.ref_score = score
 
             idx = bisect.bisect_left(neighbors, word)
-            if (not "NP" in word.lemma.type) and idx > 0 and neighbors[idx - 1].id != word.id:
+            if (not "NP" in word.lemma.type) and not(Ortho.similar(self, word)) and idx > 0 and neighbors[idx - 1].id != word.id:
                 neighbors.insert(idx, word)
                 N_neighbors += 1
             if N_neighbors > number:
@@ -236,7 +233,6 @@ class Ortho:
         
         for word in tqdm(words):
             score = word.compute_rectified_score(self)
-            word.ref_score = score
 
             if (not "NP" in word.lemma.type) and math.fmod(score, RES_HINT) < TOLERANCE_HINT:
                 value = int(score / RES_HINT)
