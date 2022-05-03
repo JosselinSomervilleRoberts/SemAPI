@@ -4,7 +4,7 @@ import numpy as np
 import bisect
 import math
 import collections
-import tqdm
+from tqdm import tqdm
 from scipy.spatial import distance
 
 
@@ -43,11 +43,13 @@ class Ortho:
         self.ortho = res[1]
         self.ortho_na = res[2]
         self.lemma = Lemma()
-        self.lemma.load_from_id(res[3])
+        self.lemma.load_from_id(db, res[3])
         self.freq = float(res[4])
         self.number = res[5]
         self.genre = res[6]
-        self.nb_syll = int(res[7])
+        self.nb_syll = res[7]
+        if not self.nb_syll is None:
+            self.nb_syll = int(self.nb_syll)
         self.nb_letters = int(res[8])
         self.vector = np.array(res[9])
 
@@ -81,8 +83,33 @@ class Ortho:
                             ("%" + word_na + "%",))
         self.load_from_db_res(db)
 
+    def load_all(db):
+        LIMIT = 5000
+        last_id = -1
+        words = []
+        res = [None]
+        print("Loading all orthos ", end = "")
+
+        while len(res) > 0:
+            print(".", end="")
+            db.cursor.execute("""SELECT ortho_id 
+                                FROM public.orthos 
+                                WHERE ortho_id > %s 
+                                ORDER BY ortho_id ASC LIMIT %s""",
+                                (last_id, LIMIT))
+            res = db.cursor.fetchall()
+        
+            for row in res:
+                last_id = row[0]
+                word = Ortho()
+                word.load_from_id(db, last_id)
+                words.append(word)
+        print("")
+        return words
+
+
     def similar(w1, w2):
-        return (w1.lemma == w2.lemma)
+        return (not w1.lemma is None) and (w1.lemma == w2.lemma)
 
     def sim_same_lemma(w1, w2):
         return 0.9 * max(0, naive_score_embeddings(w1.vector, w2.vector) - Ortho.SIMILIRARITY_MIN) / (1.0 - Ortho.SIMILIRARITY_MIN)
@@ -161,7 +188,7 @@ class Ortho:
 
         # Remove non words
         # word = word.lower()
-        if not(isword(neighbor.word)):
+        if not(isword(neighbor.ortho)):
             return
 
         # Update existing neighbors
@@ -175,80 +202,47 @@ class Ortho:
         bisect.insort(self.neighbors, neighbor)
 
 
-    def get_neighbors(self, db, number = 100, clean = True):
-        LIMIT = 10000
-
-        last_id = -1
+    def get_neighbors(self, words, number = 100, clean = True):
         neighbors = [self]
         N_neighbors = 0
-        res = [None]
-
-        print(self.word, "get_neighbors ", end = "")
-        while len(res) > 0:
-            print(".", end="")
-            db.cursor.execute("""SELECT ortho_id 
-                                FROM public.orthos 
-                                WHERE word_id > %s 
-                                ORDER BY word_id ASC LIMIT %s""",
-                                (last_id, LIMIT))
-            res = db.cursor.fetchall()
         
-            for row in res:
-                last_id = row[0]
-                word = Ortho()
-                word.load_from_id(last_id)
-                score = naive_score_embeddings(self.vector, word.vector)
-                word.ref_score = score
+        for word in tqdm(words):
+            score = naive_score_embeddings(self.vector, word.vector)
+            word.ref_score = score
 
-                idx = bisect.bisect_left(neighbors, word)
-                if idx > 0 and neighbors[idx - 1].id != word.id:
-                    neighbors.insert(idx, word)
-                    N_neighbors += 1
-                if N_neighbors > number:
-                    neighbors.pop(0)
-                    N_neighbors -= 1
-        print("")
+            idx = bisect.bisect_left(neighbors, word)
+            if (not "NP" in word.lemma.type) and idx > 0 and neighbors[idx - 1].id != word.id:
+                neighbors.insert(idx, word)
+                N_neighbors += 1
+            if N_neighbors > number:
+                neighbors.pop(0)
+                N_neighbors -= 1
+
         neighbors.pop()
         if clean:
-            for neighbor in tqdm.tqdm(neighbors):
+            self.neighbors = []
+            for neighbor in tqdm(neighbors):
                 self.add_neighbor_if_not_too_similar(neighbor)
         else:
             self.neighbors = neighbors
         return self.neighbors
 
 
-    def get_hints(self, db):
-        LIMIT = 10000
+    def get_hints(self, words):
         NB_HINTS_MAX = 5
         RES_HINT = 0.05
         TOLERANCE_HINT = 0.005
-
-        last_id = -1
         hints = {}
-        res = [None]
-
-        print(self.word, "get_hints ", end = "")
-        while len(res) > 0:
-            print(".", end="")
-            db.cursor.execute("""SELECT ortho_id 
-                                FROM public.orthos 
-                                WHERE word_id > %s 
-                                ORDER BY word_id ASC LIMIT %s""", 
-                                (last_id, LIMIT))
-            res = db.cursor.fetchall()
         
-            for row in res:
-                last_id = row[0]
-                word = Ortho()
-                word.load_from_id(last_id)
-                score = naive_score_embeddings(self.vector, word.vector)
-                word.ref_score = score
+        for word in tqdm(words):
+            score = word.compute_rectified_score(self)
+            word.ref_score = score
 
-                if math.fmod(score, RES_HINT) < TOLERANCE_HINT:
-                    value = int(score / RES_HINT)
-                    if not RES_HINT * value in hints:
-                        hints[RES_HINT * value] = [word]
-                    elif len(hints[RES_HINT * value]) < NB_HINTS_MAX:
-                        hints[RES_HINT * value].append(word)
-        print("")
+            if (not "NP" in word.lemma.type) and math.fmod(score, RES_HINT) < TOLERANCE_HINT:
+                value = int(score / RES_HINT)
+                if not RES_HINT * value in hints:
+                    hints[RES_HINT * value] = [word]
+                elif len(hints[RES_HINT * value]) < NB_HINTS_MAX:
+                    hints[RES_HINT * value].append(word)
+
         return collections.OrderedDict(sorted(hints.items()))

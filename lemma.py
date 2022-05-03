@@ -27,7 +27,7 @@ class Lemma:
             raise Exception("Cannot load Lemma from id if the id is not set. (id: %d)" % (id))
         db.cursor.execute("""SELECT lemma_id, lemma, lemma_na, type, freq, vector
                             FROM public.lemmas 
-                            WHERE ortho_id = %s""",
+                            WHERE lemma_id = %s""",
                             (id,))
         self.load_from_db_res(db)
         
@@ -56,7 +56,7 @@ class Lemma:
         if not isinstance(other, Lemma):
             raise Exception("Lemma are only comparable to Lemma, not to {0}".format(type(other)))
         else:
-            return self.id.__eq__(self.id)
+            return self.id.__eq__(other.id)
 
     def __str__(self):
         return str(self.lemma)
