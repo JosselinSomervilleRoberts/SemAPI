@@ -1,54 +1,56 @@
-CREATE TABLE words (
-	word_id serial PRIMARY KEY,
-	lang VARCHAR ( 2 ) DEFAULT 'fr' NOT NULL,
-	word VARCHAR ( 15 ) NOT NULL,
-	UNIQUE (lang, word),
-	word_na VARCHAR ( 15 ),
-	corrected VARCHAR ( 15 ),
-	corrected_na VARCHAR ( 15 ),
-	lemma VARCHAR ( 15 ),
+CREATE TABLE lemmas (
+	lemma_id serial PRIMARY KEY,
+	lemma VARCHAR (32) NOT NULL,
+	lemma_na VARCHAR (32) NOT NULL,
+    type VARCHAR(8),
+    UNIQUE(lemma, type),
+	freq FLOAT DEFAULT 0,
 	vector FLOAT ARRAY[300] NOT NULL
+);
+
+CREATE TABLE orthos (
+    ortho_id serial PRIMARY KEY,
+    lemma_id serial NOT NULL,
+	ortho VARCHAR (32) UNIQUE NOT NULL,
+	ortho_na VARCHAR (32) NOT NULL,
+    freq FLOAT DEFAULT 0,
+    genre VARCHAR (2) DEFAULT '',
+    number VARCHAR (2) DEFAULT '',
+    nb_syll SMALLINT,
+    nb_letters SMALLINT NOT NULL,
+	vector FLOAT ARRAY[300] NOT NULL,
+
+    CONSTRAINT fk_lemmas
+  	    	FOREIGN KEY(lemma_id)
+			REFERENCES lemmas(lemma_id)
+			ON DELETE CASCADE
 );
 
 CREATE TABLE sessions (
 	session_id serial PRIMARY KEY,
-	word_id serial NOT NULL,
-	lang VARCHAR ( 2 ) DEFAULT 'fr' NOT NULL,
+	ortho_id serial UNIQUE NOT NULL,
 	utc_start bigserial,
 	utc_stop bigserial,
 	difficulty smallint DEFAULT 1,
 	
-	CONSTRAINT fk_words
-  	    	FOREIGN KEY(word_id)
-			REFERENCES words(word_id )
+	CONSTRAINT fk_orthos
+  	    	FOREIGN KEY(ortho_id)
+			REFERENCES orthos(ortho_id )
 			ON DELETE CASCADE
 );
 
-CREATE TABLE session_data (
-	session_data_id serial PRIMARY KEY,
-	session_id serial NOT NULL,
-	user_id serial NOT NULL,
-	UNIQUE (session_id , user_id),
-	best_score FLOAT DEFAULT 0 NOT NULL,
-	number_guesses integer DEFAULT 0 NOT NULL,
-	
-	CONSTRAINT fk_sessions
-      		FOREIGN KEY(session_id)
-	  		REFERENCES sessions(session_id )
-				ON DELETE CASCADE
-);
 
 CREATE TABLE closest_words (
 	id serial PRIMARY KEY,
 	session_id serial NOT NULL,
-	word_id serial NOT NULL,
-	UNIQUE (session_id , word_id),
+	ortho_id serial NOT NULL,
+	UNIQUE (session_id , ortho_id),
 	score FLOAT DEFAULT 1 NOT NULL,
 
-	CONSTRAINT fk_words
-      		FOREIGN KEY(word_id)
-	  		REFERENCES words(word_id )
-				ON DELETE CASCADE,
+	CONSTRAINT fk_orthos
+  	    	FOREIGN KEY(ortho_id)
+			REFERENCES orthos(ortho_id )
+			ON DELETE CASCADE,
 
 	CONSTRAINT fk_sessions
       		FOREIGN KEY(session_id)
@@ -56,17 +58,18 @@ CREATE TABLE closest_words (
 				ON DELETE CASCADE
 );
 
-CREATE TABLE distances (
-	score_id serial PRIMARY KEY,
-	session_id serial NOT NULL,
-	word_id serial NOT NULL,
-	UNIQUE (session_id , word_id),
-	distance FLOAT DEFAULT 0 NOT NULL,
 
-	CONSTRAINT fk_words
-      		FOREIGN KEY(word_id)
-	  		REFERENCES words(word_id )
-				ON DELETE CASCADE,
+CREATE TABLE hints (
+	id serial PRIMARY KEY,
+	session_id serial NOT NULL,
+	ortho_id serial NOT NULL,
+	UNIQUE (session_id , ortho_id),
+	rectified_score FLOAT DEFAULT 1 NOT NULL,
+
+	CONSTRAINT fk_orthos
+  	    	FOREIGN KEY(ortho_id)
+			REFERENCES orthos(ortho_id )
+			ON DELETE CASCADE,
 
 	CONSTRAINT fk_sessions
       		FOREIGN KEY(session_id)

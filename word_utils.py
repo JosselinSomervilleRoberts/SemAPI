@@ -14,12 +14,12 @@ spell = None
 nlp = None
 
 # Embedder
-def load_gensim():
+def load_gensim(path_bin='C:\\Users\\josse\\Documents\\Cemantix\\SemAPI\\data\\wiki.fr.bin'):
     global ft
     import fasttext
     if ft is None:
         print("Loading embeddings... May take a while.")
-        ft = fasttext.load_model('C:\\Users\\josse\\Documents\\Cemantix\\SemAPI\\data\\wiki.fr.bin')
+        ft = fasttext.load_model(path_bin)
 
 # Spellchecker
 def load_spellchecker():

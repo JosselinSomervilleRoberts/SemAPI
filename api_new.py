@@ -8,17 +8,12 @@ from datetime import datetime
 import random
 import os
 from dotenv import load_dotenv
-
-load_dotenv()
-
 from word_utils import correct
 
-app = flask.Flask(__name__)
-#app.config["DEBUG"] = True
 
-dm = DataManager()
-db = DbConnexion()
-db.connect()
+app = flask.Flask(__name__)
+dm = None
+db = None
 
 def current_session_id():
     global db, dm
@@ -163,4 +158,12 @@ def hint():
     # No hint was found, this is not normal
     return "Internal error: No clue found.", 500
 
-app.run(port=os.getenv('API_PORT'))
+
+
+if __name__ == "__main__":
+    load_dotenv()
+    dm = DataManager()
+    db = DbConnexion()
+    db.connect()
+    app.run(port=os.getenv('API_PORT'))
+    db.disconnect()
