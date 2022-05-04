@@ -164,7 +164,7 @@ paths:
           required: true
           schema:
             type: integer
-          description: Current session (to know the word to guess). If not set, the current session wil be used (just like GET /session-id).
+          description: Current session (to know the word to guess).
         - in: query
           name: user_id
           required: false
@@ -216,6 +216,154 @@ paths:
               schema: 
                 type: string
                 default: "Internal error: No clue found."
+
+        '500':    # status code
+          description: There are no word associated to the sesssion-id.
+          content:
+            application/json:
+              schema: 
+                type: string
+                default: "Internal error: baseline not found."
+
+  /hint/nb-letters:
+    get:
+      tags: 
+        - Hints
+      summary: Returns the number of letters of the word to guess.
+      parameters:
+        - in: query
+          name: session_id
+          required: true
+          schema:
+            type: integer
+          description: Current session (to know the word to guess).
+        - in: query
+          name: user_id
+          required: false
+          schema:
+            type: string
+          description: ID of the user (CURRENTLY UNUSED)
+      responses:
+        '200':    # status code
+          description: The number of letters was found
+          content:
+            application/json:
+              schema: 
+                type: object
+                properties:
+                  session_id:
+                    type: integer
+                    example: 12
+                  user_id:
+                    type: integer
+                    example: 564
+                  nb_letters:
+                    type: integer
+                    example: 7
+
+        '500':    # status code
+          description: There are no word associated to the sesssion-id.
+          content:
+            application/json:
+              schema: 
+                type: string
+                default: "Internal error: baseline not found."
+
+  /hint/nb-syllables:
+    get:
+      tags: 
+        - Hints
+      summary: Returns the number of syllables of the word to guess.
+      parameters:
+        - in: query
+          name: session_id
+          required: true
+          schema:
+            type: integer
+          description: Current session (to know the word to guess).
+        - in: query
+          name: user_id
+          required: false
+          schema:
+            type: string
+          description: ID of the user (CURRENTLY UNUSED)
+      responses:
+        '200':    # status code
+          description: The number of letters was found
+          content:
+            application/json:
+              schema: 
+                type: object
+                properties:
+                  session_id:
+                    type: integer
+                    example: 12
+                  user_id:
+                    type: integer
+                    example: 564
+                  nb_syllables:
+                    type: integer
+                    example: 3
+
+        '404':    # status code
+          description: The word to guess has not a known number of syllables.
+          content:
+            application/json:
+              schema: 
+                type: string
+                default: "Internal error: No clue found."
+
+        '500':    # status code
+          description: There are no word associated to the sesssion-id.
+          content:
+            application/json:
+              schema: 
+                type: string
+                default: "Internal error: baseline not found."
+
+  /hint/type:
+    get:
+      tags: 
+        - Hints
+      summary: Returns the type of the word to guess.
+      parameters:
+        - in: query
+          name: session_id
+          required: true
+          schema:
+            type: integer
+          description: Current session (to know the word to guess).
+        - in: query
+          name: user_id
+          required: false
+          schema:
+            type: string
+          description: ID of the user (CURRENTLY UNUSED)
+      responses:
+        '200':    # status code
+          description: The number of letters was found
+          content:
+            application/json:
+              schema: 
+                type: object
+                properties:
+                  session_id:
+                    type: integer
+                    example: 12
+                  user_id:
+                    type: integer
+                    example: 564
+                  type:
+                    type: string
+                    example: "NOM"
+                  gender:
+                    type: string
+                    enum: ['', 'm', 'f']
+                    example: 'm'
+                  number:
+                    type: string
+                    enum: ['', 's', 'p']
+                    example: "s"
 
         '500':    # status code
           description: There are no word associated to the sesssion-id.

@@ -124,6 +124,97 @@ def score():
     return jsonify(res), status
 
 
+@app.route('/hint/nb-letters', methods=['GET'])
+def hint_nb_letters():
+    global db, dm
+
+    user_id = None
+    session_id = None
+    value = 0
+    
+    # Get params
+    if 'user_id' in request.args:
+        user_id = int(request.args['user_id'])
+    if 'session_id' in request.args:
+        session_id = int(request.args['session_id'])
+    else:
+        return "Missing parameter: session_id.", 400
+
+    # Find the baseline
+    baseline = None
+    try:
+        res = dm.get_session_infos(db, session_id)
+        baseline = res["word"]
+    except Exception as e:
+        db.rollback()
+        return 'Internal error: baseline not found. %s' %e, 500
+
+    return jsonify({"session_id": session_id, "user_id": user_id, "nb_letters": baseline.nb_letters}), 200
+
+
+
+@app.route('/hint/nb-syllables', methods=['GET'])
+def hint_nb_syllables():
+    global db, dm
+
+    user_id = None
+    session_id = None
+    value = 0
+    
+    # Get params
+    if 'user_id' in request.args:
+        user_id = int(request.args['user_id'])
+    if 'session_id' in request.args:
+        session_id = int(request.args['session_id'])
+    else:
+        return "Missing parameter: session_id.", 400
+
+    # Find the baseline
+    baseline = None
+    try:
+        res = dm.get_session_infos(db, session_id)
+        baseline = res["word"]
+    except Exception as e:
+        db.rollback()
+        return 'Internal error: baseline not found. %s' %e, 500
+
+    if baseline.nb_syll is None:
+        return jsonify({"session_id": session_id, "user_id": user_id}), 404
+    else:
+        return jsonify({"session_id": session_id, "user_id": user_id, "nb_syllables": baseline.nb_syll}), 200
+
+
+
+
+@app.route('/hint/type', methods=['GET'])
+def hint_type():
+    global db, dm
+
+    user_id = None
+    session_id = None
+    value = 0
+    
+    # Get params
+    if 'user_id' in request.args:
+        user_id = int(request.args['user_id'])
+    if 'session_id' in request.args:
+        session_id = int(request.args['session_id'])
+    else:
+        return "Missing parameter: session_id.", 400
+
+    # Find the baseline
+    baseline = None
+    try:
+        res = dm.get_session_infos(db, session_id)
+        baseline = res["word"]
+    except Exception as e:
+        db.rollback()
+        return 'Internal error: baseline not found. %s' %e, 500
+
+    return jsonify({"session_id": session_id, "user_id": user_id, "type": baseline.lemma.type, "gender": baseline.genre, "number": baseline.number}), 200
+
+
+
 @app.route('/hint', methods=['GET'])
 def hint():
     global db, dm
