@@ -6,7 +6,7 @@ info:
    
    - *wiki.fr.bin* - Encoding of french words: <https://fasttext.cc/docs/en/pretrained-vectors.html>
 
-   - *Lexique 3.83* - French words with lemmas and other usefu info: <http://www.lexique.org>
+   - *Lexique 3.83* - French words with lemmas and other useful info: <http://www.lexique.org>
 
    - *Pantheon 1.0* - Famous people: <https://dataverse.harvard.edu/file.xhtml?persistentId=doi:10.7910/DVN/28201/VEG34D&version=1.0>
 
@@ -372,4 +372,49 @@ paths:
               schema: 
                 type: string
                 default: "Internal error: baseline not found."
+
+  /user:
+    get:
+      tags: 
+        - Users
+      summary: TODO
+      parameters:
+        - in: query
+          name: user_name
+          required: true
+          schema:
+            type: string
+          description: TODO
+        - in: query
+          name: user_tag
+          required: true
+          schema:
+            type: integer
+          description: TODO
+      responses:
+        '200':    # status code
+          description: TODO
+          content:
+            application/json:
+              schema: 
+                type: object
+
+    post:
+      tags: 
+        - Users
+      summary: TODO
+      parameters:
+        - in: query
+          name: user_name
+          required: true
+          schema:
+            type: string
+          description: TODO
+      responses:
+        '200':    # status code
+          description: TODO
+          content:
+            application/json:
+              schema: 
+                type: object
 
