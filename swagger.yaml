@@ -25,8 +25,15 @@ paths:
   /session-id:
     get:
       tags: 
-        - Session
+        - Sessions
       summary: Returns the current session id.
+      parameters:
+        - in: query
+          name: user_id
+          required: true
+          schema:
+            type: string
+          description: TODO
       description: Uses UTC time to get the session_id corresponding to the wor dof the day in the GMT+1 timezone.
       responses:
         '200':    # status code
@@ -43,9 +50,15 @@ paths:
   /score:
     get:
       tags: 
-        - Score
+        - Scores
       summary: Returns a score between 0 and 1 for a given word.
       parameters:
+        - in: query
+          name: user_id
+          required: true
+          schema:
+            type: string
+          description: TODO
         - in: query
           name: word
           required: true
@@ -58,12 +71,6 @@ paths:
           schema:
             type: integer
           description: Current session (to know the word to guess). If not set, the current session wil be used (just like GET /session-id).
-        - in: query
-          name: user_id
-          required: false
-          schema:
-            type: string
-          description: ID of the user (CURRENTLY UNUSED)
         - in: query
           name: correction
           required: false
@@ -153,6 +160,12 @@ paths:
       summary: Returns a word with a better score than the precised value.
       parameters:
         - in: query
+          name: user_id
+          required: true
+          schema:
+            type: string
+          description: TODO
+        - in: query
           name: value
           required: true
           schema:
@@ -165,12 +178,6 @@ paths:
           schema:
             type: integer
           description: Current session (to know the word to guess).
-        - in: query
-          name: user_id
-          required: false
-          schema:
-            type: string
-          description: ID of the user (CURRENTLY UNUSED)
       responses:
         '200':    # status code
           description: A satisfying hint was found.
@@ -232,17 +239,17 @@ paths:
       summary: Returns the number of letters of the word to guess.
       parameters:
         - in: query
+          name: user_id
+          required: true
+          schema:
+            type: string
+          description: TODO
+        - in: query
           name: session_id
           required: true
           schema:
             type: integer
           description: Current session (to know the word to guess).
-        - in: query
-          name: user_id
-          required: false
-          schema:
-            type: string
-          description: ID of the user (CURRENTLY UNUSED)
       responses:
         '200':    # status code
           description: The number of letters was found
@@ -276,17 +283,17 @@ paths:
       summary: Returns the number of syllables of the word to guess.
       parameters:
         - in: query
+          name: user_id
+          required: true
+          schema:
+            type: string
+          description: TODO
+        - in: query
           name: session_id
           required: true
           schema:
             type: integer
           description: Current session (to know the word to guess).
-        - in: query
-          name: user_id
-          required: false
-          schema:
-            type: string
-          description: ID of the user (CURRENTLY UNUSED)
       responses:
         '200':    # status code
           description: The number of letters was found
@@ -328,17 +335,17 @@ paths:
       summary: Returns the type of the word to guess.
       parameters:
         - in: query
+          name: user_id
+          required: true
+          schema:
+            type: string
+          description: TODO
+        - in: query
           name: session_id
           required: true
           schema:
             type: integer
           description: Current session (to know the word to guess).
-        - in: query
-          name: user_id
-          required: false
-          schema:
-            type: string
-          description: ID of the user (CURRENTLY UNUSED)
       responses:
         '200':    # status code
           description: The number of letters was found
@@ -377,7 +384,7 @@ paths:
     get:
       tags: 
         - Users
-      summary: TODO
+      summary: Returns the User ID given its name and tag.
       parameters:
         - in: query
           name: user_name
@@ -402,13 +409,109 @@ paths:
     post:
       tags: 
         - Users
-      summary: TODO
+      summary: Creates an user.
       parameters:
         - in: query
           name: user_name
           required: true
           schema:
             type: string
+          description: TODO
+      responses:
+        '200':    # status code
+          description: TODO
+          content:
+            application/json:
+              schema: 
+                type: object
+
+  /ranking/all:
+    get:
+      tags: 
+        - Ranks
+      summary: Returns the ranking of the range asked for.
+      parameters:
+        - in: query
+          name: user_id
+          required: true
+          schema:
+            type: string
+          description: TODO
+        - in: query
+          name: session_id
+          required: true
+          schema:
+            type: integer
+          description: TODO
+        - in: query
+          name: index_start
+          required: true
+          schema:
+            type: integer
+          description: TODO
+        - in: query
+          name: count
+          required: true
+          schema:
+            type: integer
+          description: TODO
+      responses:
+        '200':    # status code
+          description: TODO
+          content:
+            application/json:
+              schema: 
+                type: object
+
+  /ranking:
+    get:
+      tags: 
+        - Ranks
+      summary: Returns the rank of the user.
+      parameters:
+        - in: query
+          name: user_id
+          required: true
+          schema:
+            type: string
+          description: TODO
+        - in: query
+          name: session_id
+          required: true
+          schema:
+            type: integer
+          description: TODO
+      responses:
+        '200':    # status code
+          description: TODO
+          content:
+            application/json:
+              schema: 
+                type: object
+
+  /final-score:
+    post:
+      tags: 
+        - Scores
+      summary: Post the given score as the final score of the player.
+      parameters:
+        - in: query
+          name: user_id
+          required: true
+          schema:
+            type: string
+          description: TODO
+        - in: query
+          name: session_id
+          required: true
+          schema:
+            type: integer
+          description: TODO
+        - in: query
+          name: score
+          required: true
+          schema:
+            type: number
           description: TODO
       responses:
         '200':    # status code

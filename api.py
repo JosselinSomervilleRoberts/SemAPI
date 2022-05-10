@@ -18,21 +18,24 @@ dm = None
 db = None
 
 
-
 def current_session_id():
     global db, dm
     current_utc = int(datetime.now().timestamp())
     return dm.get_session_id(db, current_utc)
 
-def LogRequest(method, route, params):
+def LogRequest(method, route, params, status, user_needed = True):
     global db
+    user_id = params.get('user_id', None, str)
+    if user_id is None and user_needed:
+        raise Exception("User ID not provided in request.", 400)
     try:
-        user_id = params.get('user_id', 'USER#0000', str)
-        db.cursor.execute("INSERT INTO requests(method, route, params, user_id) VALUES(%s, %s, %s, %s)", (method, route, str(params), user_id))
+        str_params = ",".join([key + "=" + params[key] for key in params])
+        utc_date_ms = int(1000.0 * datetime.now().timestamp())
+        db.cursor.execute("INSERT INTO requests(method, route, params, user_id, status, utc_date_ms) VALUES(%s, %s, %s, %s, %s, %s)", (method, route, str_params, user_id, status, utc_date_ms))
         db.connexion.commit()
     except Exception as e:
         db.rollback()
-        print("EXCEPTION", e)
+        raise Exception("User ID not valid: %s. Error: %s" % (user_id,e), 400)
 
 def LogScore(user_id, session_id, ortho_id, score):
     global db
@@ -57,7 +60,10 @@ def GetNbAttempts(session_id, user_id):
 @app.route('/session-id', methods=['GET'])
 def request_sessions_id():
     res, status = session_id(request.args)
-    LogRequest('GET', '/session-id', request.args)
+    try:
+        LogRequest('GET', '/session-id', request.args, status)
+    except Exception as e:
+        return e.args[0], e.args[1]
     return res, status
 
 def session_id(_):
@@ -76,7 +82,10 @@ def session_id(_):
 @app.route('/score', methods=['GET'])
 def request_score():
     res, status = score(request.args)
-    LogRequest('GET', '/score', request.args)
+    try:
+        LogRequest('GET', '/score', request.args, status)
+    except Exception as e:
+        return e.args[0], e.args[1]
     return res, status
 
 def score(args):
@@ -87,6 +96,7 @@ def score(args):
     user_id = args.get('user_id', default=None, type=str)
     session_id = args.get('session_id', default=None, type=int)
     correction = args.get('correction', default=True, type=bool)
+    print("correction =", correction)
     if word is None:
         return "Missing parameter: word.", 400
 
@@ -174,21 +184,18 @@ def score(args):
 @app.route('/ranking', methods=['GET'])
 def request_ranking():
     res, status = ranking(request.args)
-    LogRequest('GET', '/ranking', request.args)
+    try:
+        LogRequest('GET', '/ranking', request.args, status)
+    except Exception as e:
+        return e.args[0], e.args[1]
     return res, status
 
 def ranking(args):
     global db, dm
-    index_start = args.get('index_start', default = None, type = int)
-    count = args.get('count', default = None, type = int)
     session_id = args.get('session_id', default = None, type = str)
     user_id = args.get('user_id', default = None, type = str)
     if user_id is None:
         return "Missing parameter: user_id.", 400
-    if index_start is None:
-        return "Missing parameter: index_start.", 400
-    if count is None:
-        return "Missing parameter: count.", 400
     if session_id is None:
         return "Missing parameter: session_id.", 400
     
@@ -199,13 +206,13 @@ def ranking(args):
                             ON s.user_id = u.user_id
                             WHERE s.session_id = %s AND s.user_id = %s
                             LIMIT 1""",
-                            (session_id, count, index_start))
-        res = db.cursor.fetchone()
+                            (session_id, user_id))
+        res_query = db.cursor.fetchone()
         
         res = {"name": [], "tag": [], "score": [], "nb_attempts": [], "has_won": []}
-        if res is None:
+        if res_query is None:
             return "Internal error: No result found", 500
-        return {"name": res[0], "tag": res[1], "score": res[2], "nb_attempts": res[3], "has_won": res[4]}, 200
+        return {"name": res_query[0], "tag": res_query[1], "score": res_query[2], "nb_attempts": res_query[3], "has_won": res_query[4]}, 200
     except Exception as e:
         db.rollback()
         return 'Internal error: %s' %e, 500
@@ -215,7 +222,10 @@ def ranking(args):
 @app.route('/ranking/all', methods=['GET'])
 def request_ranking_all():
     res, status = ranking_all(request.args)
-    LogRequest('GET', '/ranking/all', request.args)
+    try:
+        LogRequest('GET', '/ranking/all', request.args, status)
+    except Exception as e:
+        return e.args[0], e.args[1]
     return res, status
 
 def ranking_all(args):
@@ -236,7 +246,7 @@ def ranking_all(args):
                             JOIN users AS u
                             ON s.user_id = u.user_id
                             WHERE s.session_id = %s
-                            ORDER BY s.score DESC, s.nb_attempts DESC, s.utc_date ASC
+                            ORDER BY s.score DESC, s.nb_attempts DESC, s.utc_date_ms ASC
                             LIMIT %s OFFSET %s""",
                             (session_id, count, index_start))
         res_query = db.cursor.fetchall()
@@ -259,7 +269,10 @@ def ranking_all(args):
 @app.route('/user', methods=['GET'])
 def request_get_user():
     res, status = get_user(request.args)
-    LogRequest('GET', '/user', request.args)
+    try:
+        LogRequest('GET', '/user', request.args, status, False)
+    except Exception as e:
+        return e.args[0], e.args[1]
     return res, status
 
 def get_user(args):
@@ -287,7 +300,10 @@ def get_user(args):
 @app.route('/user', methods=['POST'])
 def request_create_user():
     res, status = create_user(request.args)
-    print(res, status)
+    try:
+        LogRequest('POST', '/user', request.args, status, False)
+    except Exception as e:
+        return e.args[0], e.args[1]
     return res, status
 
 def create_user(args):
@@ -324,7 +340,10 @@ def create_user(args):
 @app.route('/final-score', methods=['POST'])
 def request_final_score():
     res, status = final_score(request.args)
-    LogRequest('POST', '/final-score', request.args)
+    try:
+        LogRequest('POST', '/final-score', request.args, status)
+    except Exception as e:
+        return e.args[0], e.args[1]
     return res, status
 
 def final_score(args):
@@ -338,25 +357,32 @@ def final_score(args):
         return "Missing parameter: user_id.", 400
     if session_id is None:
         return "Missing parameter: session_id.", 400
-    nb_attemps = GetNbAttempts(session_id, user_id)
-    db.cursor.execute("""INSERT INTO final_scores(session_id, user_id, score, nb_attemps, has_won)
-                        VALUES(%s, %s, %s, %s, %s)""",
-                        (session_id, user_id, score, nb_attemps, False))
-    db.connexion.commit()
-    return None, 200
+    nb_attempts = GetNbAttempts(session_id, user_id)
+    try:
+        db.cursor.execute("""INSERT INTO final_scores(session_id, user_id, score, nb_attempts, has_won, utc_date_ms)
+                            VALUES(%s, %s, %s, %s, %s, %s)""",
+                            (session_id, user_id, score, nb_attempts, False, int(1000.0 * datetime.now().timestamp())))
+        db.connexion.commit()
+        return "", 200
+    except Exception as e:
+        db.rollback()
+        return "Internal Error: Could not insert final score. Error: %s" %e, 500
 
 
 
 @app.route('/hint/nb-letters', methods=['GET'])
 def request_hint_nb_letters():
     res, status = hint_nb_letters(request.args)
-    LogRequest('GET', '/hint/nb-letters', request.args)
+    try:
+        LogRequest('GET', '/hint/nb-letters', request.args, status)
+    except Exception as e:
+        return e.args[0], e.args[1]
     return res, status
 
 def hint_nb_letters(args):
     global db, dm
     user_id = args.get('user_id', default = None, type = str)
-    session_id = args.get('session_id', default = None, type = str)
+    session_id = args.get('session_id', default = None, type = int)
     if user_id is None:
         return "Missing parameter: user_id.", 400
     if session_id is None:
@@ -377,14 +403,17 @@ def hint_nb_letters(args):
 
 @app.route('/hint/nb-syllables', methods=['GET'])
 def request_hint_nb_syllables():
-    res, status = hint_nb_syllables(request.args)
-    LogRequest('GET', '/hint/nb-syllables', request.args)
+    res, status = hint_nb_syllables(request.args, status)
+    try:
+        LogRequest('GET', '/hint/nb-syllables', request.args, status)
+    except Exception as e:
+        return e.args[0], e.args[1]
     return res, status
 
 def hint_nb_syllables(args):
     global db, dm
     user_id = args.get('user_id', default = None, type = str)
-    session_id = args.get('session_id', default = None, type = str)
+    session_id = args.get('session_id', default = None, type = int)
     if user_id is None:
         return "Missing parameter: user_id.", 400
     if session_id is None:
@@ -410,13 +439,16 @@ def hint_nb_syllables(args):
 @app.route('/hint/type', methods=['GET'])
 def request_hint_type():
     res, status = hint_type(request.args)
-    LogRequest('GET', '/hint/type', request.args)
+    try:
+        LogRequest('GET', '/hint/type', request.args, status)
+    except Exception as e:
+        return e.args[0], e.args[1]
     return res, status
 
 def hint_type(args):
     global db, dm
     user_id = args.get('user_id', default = None, type = str)
-    session_id = args.get('session_id', default = None, type = str)
+    session_id = args.get('session_id', default = None, type = int)
     if user_id is None:
         return "Missing parameter: user_id.", 400
     if session_id is None:
@@ -438,13 +470,16 @@ def hint_type(args):
 @app.route('/hint', methods=['GET'])
 def request_hint():
     res, status = hint(request.args)
-    LogRequest('GET', '/hint', request.args)
+    try:
+        LogRequest('GET', '/hint', request.args, status)
+    except Exception as e:
+        return e.args[0], e.args[1]
     return res, status
 
 def hint(args):
     global db, dm
     user_id = args.get('user_id', default = None, type = str)
-    session_id = args.get('session_id', default = None, type = str)
+    session_id = args.get('session_id', default = None, type = int)
     value = args.get('value', default = None, type = float)
     if user_id is None:
         return "Missing parameter: user_id.", 400
