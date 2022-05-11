@@ -18,10 +18,18 @@ dm = None
 db = None
 
 
+def current_utc_ms():
+    return int(1000.0 * datetime.now().timestamp())
+
 def current_session_id():
     global db, dm
     current_utc = int(datetime.now().timestamp())
     return dm.get_session_id(db, current_utc)
+    
+def yesterday_session_id():
+    global db, dm
+    yesterday_utc = int(datetime.now().timestamp()) - 3600*24
+    return dm.get_session_id(db, yesterday_utc)
 
 def LogRequest(method, route, params, status, user_needed = True):
     global db
@@ -30,8 +38,9 @@ def LogRequest(method, route, params, status, user_needed = True):
         raise Exception("User ID not provided in request.", 400)
     try:
         str_params = ",".join([key + "=" + params[key] for key in params])
-        utc_date_ms = int(1000.0 * datetime.now().timestamp())
-        db.cursor.execute("INSERT INTO requests(method, route, params, user_id, status, utc_date_ms) VALUES(%s, %s, %s, %s, %s, %s)", (method, route, str_params, user_id, status, utc_date_ms))
+        db.cursor.execute("""INSERT INTO requests(method, route, params, user_id, status, utc_date_ms) 
+                            VALUES(%s, %s, %s, %s, %s, %s)""", 
+                            (method, route, str_params, user_id, status, current_utc_ms()))
         db.connexion.commit()
     except Exception as e:
         db.rollback()
@@ -40,7 +49,9 @@ def LogRequest(method, route, params, status, user_needed = True):
 def LogScore(user_id, session_id, ortho_id, score):
     global db
     try:
-        db.cursor.execute("INSERT INTO scores(session_id, user_id, ortho_id, score) VALUES(%s, %s, %s, %s)", (session_id, user_id, ortho_id, score))
+        db.cursor.execute("""INSERT INTO scores(session_id, user_id, ortho_id, score) 
+                            VALUES(%s, %s, %s, %s)""", 
+                            (session_id, user_id, ortho_id, score))
         db.connexion.commit()
         return True
     except:
@@ -55,6 +66,44 @@ def GetNbAttempts(session_id, user_id):
         raise Exception("Could not count number of attempts.")
     return res[0]
 
+def GetIsActiveOrSetIt(session_id, user_id):
+    global db
+    db.cursor.execute("SELECT active FROM activity WHERE session_id = %s AND user_id = %s", (session_id, user_id))
+    res = db.cursor.fetchone()
+    if res is None:
+        try:
+            db.cursor.execute("""INSERT INTO activity(session_id, user_id, utc_start_ms, active)
+                                VALUES(%s, %s, %s, %s)""",
+                                (session_id, user_id, current_utc_ms(), True))
+        except:
+            db.rollback()
+            return False
+        return True
+    return bool(res[0])
+
+
+def GetIsStillActive(session_id, user_id):
+    global db
+    db.cursor.execute("SELECT active FROM activity WHERE session_id = %s AND user_id = %s", (session_id, user_id))
+    res = db.cursor.fetchone()
+    if res is None:
+        return False
+    return bool(res[0])
+
+
+def GetHasPlayedButHasNotWon(session_id, user_id):
+    global db
+    db.cursor.execute("SELECT active FROM activity WHERE session_id = %s AND user_id = %s", (session_id, user_id))
+    res = db.cursor.fetchone()
+    if res is None:
+        return False
+    db.cursor.execute("SELECT has_won FROM final_scores WHERE session_id = %s AND user_id = %s", (session_id, user_id))
+    res = db.cursor.fetchone()
+    if res is None:
+        return False
+    return not bool(res[0])
+
+
 
 
 @app.route('/session-id', methods=['GET'])
@@ -66,16 +115,31 @@ def request_sessions_id():
         return e.args[0], e.args[1]
     return res, status
 
-def session_id(_):
+def session_id(args):
+    user_id = args.get('user_id', default=None, type=str)
     session_id = None
     try:
         session_id = current_session_id()
     except Exception as e:
         db.rollback()
         return 'Internal error: could not get session id. %s' % e, 500
-    res = {}
-    res['session_id'] = session_id
-    return jsonify(res), 200
+    res_request = {}
+    res_request['session_id'] = session_id
+    yesterday_id = yesterday_session_id()
+    if GetIsStillActive(yesterday_id, user_id):
+        res_request["can_continue"] = yesterday_id
+    elif GetHasPlayedButHasNotWon(yesterday_id, user_id):
+        try:
+            db.cursor.execute("""SELECT o.ortho FROM orthos AS o
+                                JOIN sessions AS s
+                                ON s.ortho_id = o.ortho_id
+                                WHERE s.session_id = %s""", (yesterday_id,))
+            res = db.cursor.fetchone()
+            if res is not None:
+                res_request["yesterday"] = res[0]
+        except:
+            return "Internal error: could not get yesterday's word.", 500
+    return jsonify(res_request), 200
 
 
 
@@ -107,6 +171,13 @@ def score(args):
         except Exception as e:
             db.rollback()
             return 'Internal error: could not get session id. %s' %e, 500
+
+    try:
+        if not GetIsActiveOrSetIt(session_id, user_id):
+            return "Game not active for session_id: %d, user_id: %s." % (session_id, user_id), 400
+    except Exception as e:
+        return "Interal Error: %s" %e, 500
+
     baseline = None
     try:
         baseline = dm.get_session_infos(db, session_id)['word']
@@ -163,12 +234,17 @@ def score(args):
         res['word'] = word_object.ortho
         res['score'] = score
         new = LogScore(user_id, session_id, word_object.id, score)
-        res['rew'] = new
+        nb_attempts = GetNbAttempts(session_id, user_id)
+        res['new'] = new
+        res["attempt"] = nb_attempts
         if new and score >= 1:
-            nb_attempts = GetNbAttempts(session_id, user_id)
             db.cursor.execute("""INSERT INTO final_scores(session_id, user_id, score, nb_attempts, has_won, utc_date_ms)
                                 VALUES(%s, %s, %s, %s, %s, %s)""",
-                                (session_id, user_id, score, nb_attempts, True, int(1000.0 * datetime.now().timestamp())))
+                                (session_id, user_id, score, nb_attempts, True, current_utc_ms()))
+            db.cursor.execute("""UPDATE activity
+                                SET active = %s, utc_end_ms = %s
+                                WHERE session_id = %s AND user_id = %s""",
+                                (False, current_utc_ms(), session_id, user_id))
             db.connexion.commit()
     else:
         res['word'] = word
@@ -198,6 +274,12 @@ def ranking(args):
         return "Missing parameter: user_id.", 400
     if session_id is None:
         return "Missing parameter: session_id.", 400
+
+    try:
+        if GetIsActiveOrSetIt(session_id, user_id):
+            return "Game is still active for session_id: %d, user_id: %s." % (session_id, user_id), 400
+    except Exception as e:
+        return "Interal Error: %s" %e, 500
     
     try:
         db.cursor.execute("""SELECT u.name, u.tag, s.score, s.nb_attempts, s.has_won, s.utc_date_ms
@@ -290,7 +372,9 @@ def get_user(args):
         res = db.cursor.fetchone()
         if res is None:
             return "Internal error: user not found.", 500
-        return {"user_id": res[0], "user_name": user_name, "user_tag": user_tag}, 200
+        user_id = res[0]
+        res_request = {"user_id": user_id, "user_name": user_name, "user_tag": user_tag}
+        return res_request, 200
     except:
         db.rollback()
         return "Internal error: could not get user.", 500
@@ -337,6 +421,43 @@ def create_user(args):
     
 
 
+@app.route('/user/session-infos', methods=['GET'])
+def request_user_session_infos():
+    res, status = user_session_infos(request.args)
+    try:
+        LogRequest('GET', '/user/session-infos', request.args, status)
+    except Exception as e:
+        return e.args[0], e.args[1]
+    return res, status
+
+def user_session_infos(args):
+    global db, dm
+    user_id = args.get('user_id', default = None, type = str)
+    session_id = args.get('session_id', default = None, type = str)
+    if user_id is None:
+        return "Missing parameter: user_id.", 400
+    if session_id is None:
+        return "Missing parameter: session_id.", 400
+    try:
+        db.cursor.execute("""SELECT o.ortho, s.score
+                            FROM scores AS s
+                            JOIN orthos AS o
+                            ON o.ortho_id = s.ortho_id
+                            WHERE session_id = %s AND user_id = %s
+                            ORDER BY score_id ASC""",
+                            (session_id, user_id))
+        res = db.cursor.fetchall()
+        res_request = {"attempt": [], "word": [], "score": []}
+        for index, row in enumerate(res):
+            res_request["attempt"].append(index +1)
+            res_request["word"].append(str(row[0]))
+            res_request["score"].append(float(row[1]))
+        return res_request, 200
+    except Exception as e:
+        db.rollback()
+        return "Internal Error: Could not get user session infos. Error: %s" %e, 500
+
+
 @app.route('/final-score', methods=['POST'])
 def request_final_score():
     res, status = final_score(request.args)
@@ -350,18 +471,32 @@ def final_score(args):
     global db, dm
     user_id = args.get('user_id', default = None, type = str)
     session_id = args.get('session_id', default = None, type = str)
-    score = args.get('score', default = None, type = float)
-    if score is None:
-        return "Missing parameter: score.", 400
     if user_id is None:
         return "Missing parameter: user_id.", 400
     if session_id is None:
         return "Missing parameter: session_id.", 400
+
+    try:
+        if not GetIsActiveOrSetIt(session_id, user_id):
+            return "Game not active for session_id: %d, user_id: %s." % (session_id, user_id), 400
+    except Exception as e:
+        return "Interal Error: %s" %e, 500
+
+    db.cursor.execute("SELECT MAX(score) FROM scores WHERE session_id = %s AND user_id = %s", (session_id, user_id))
+    res = db.cursor.fetchone()
+    if res is None:
+        return "Cannot quit without playing once.", 400
+    score = float(res[0])
+
     nb_attempts = GetNbAttempts(session_id, user_id)
     try:
         db.cursor.execute("""INSERT INTO final_scores(session_id, user_id, score, nb_attempts, has_won, utc_date_ms)
                             VALUES(%s, %s, %s, %s, %s, %s)""",
-                            (session_id, user_id, score, nb_attempts, False, int(1000.0 * datetime.now().timestamp())))
+                            (session_id, user_id, score, nb_attempts, False, current_utc_ms()))
+        db.cursor.execute("""UPDATE activity
+                                SET active = %s, utc_end_ms = %s
+                                WHERE session_id = %s AND user_id = %s""",
+                                (False, current_utc_ms(), session_id, user_id))
         db.connexion.commit()
         return "", 200
     except Exception as e:

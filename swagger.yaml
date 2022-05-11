@@ -507,11 +507,31 @@ paths:
           schema:
             type: integer
           description: TODO
+      responses:
+        '200':    # status code
+          description: TODO
+          content:
+            application/json:
+              schema: 
+                type: object
+
+  /user/session-infos:
+    get:
+      tags: 
+        - Users
+      summary: Returns the list of past attempts.
+      parameters:
         - in: query
-          name: score
+          name: user_id
           required: true
           schema:
-            type: number
+            type: string
+          description: TODO
+        - in: query
+          name: session_id
+          required: true
+          schema:
+            type: integer
           description: TODO
       responses:
         '200':    # status code

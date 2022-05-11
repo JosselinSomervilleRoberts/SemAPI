@@ -159,3 +159,22 @@ CREATE TABLE final_scores (
 	  		REFERENCES users(user_id )
 				ON DELETE CASCADE
 );
+
+CREATE TABLE activity (
+	id serial PRIMARY KEY,
+	session_id serial NOT NULL,
+	user_id VARCHAR (15),
+	utc_start_ms bigserial,
+	utc_end_ms bigserial,
+	active BOOLEAN DEFAULT True,
+
+	CONSTRAINT fk_sessions
+      		FOREIGN KEY(session_id)
+	  		REFERENCES sessions(session_id )
+				ON DELETE CASCADE,
+
+	CONSTRAINT fk_users
+      		FOREIGN KEY(user_id)
+	  		REFERENCES users(user_id )
+				ON DELETE CASCADE
+);
