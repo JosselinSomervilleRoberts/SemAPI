@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 if __name__ == "__main__":
     load_dotenv()
     db = DbConnexion()
+    db.connect()
     db.cursor.execute("""CREATE TABLE users (
         user_id VARCHAR(15) UNIQUE,
         name VARCHAR(10) NOT NULL,
