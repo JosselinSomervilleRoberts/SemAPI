@@ -103,6 +103,18 @@ def GetHasPlayedButHasNotWon(session_id, user_id):
         return False
     return not bool(res[0])
 
+def GetHasPlayedAndHasWon(session_id, user_id):
+    global db
+    db.cursor.execute("SELECT active FROM activity WHERE session_id = %s AND user_id = %s", (session_id, user_id))
+    res = db.cursor.fetchone()
+    if res is None:
+        return False
+    db.cursor.execute("SELECT has_won FROM final_scores WHERE session_id = %s AND user_id = %s", (session_id, user_id))
+    res = db.cursor.fetchone()
+    if res is None:
+        return False
+    return bool(res[0])
+
 
 
 
@@ -268,7 +280,7 @@ def request_ranking():
 
 def ranking(args):
     global db, dm
-    session_id = args.get('session_id', default = None, type = str)
+    session_id = args.get('session_id', default = None, type = int)
     user_id = args.get('user_id', default = None, type = str)
     if user_id is None:
         return "Missing parameter: user_id.", 400
@@ -452,6 +464,8 @@ def user_session_infos(args):
             res_request["attempt"].append(index +1)
             res_request["word"].append(str(row[0]))
             res_request["score"].append(float(row[1]))
+        res_request["active"] = GetIsStillActive(session_id, user_id)
+        res_request['has_won'] = GetHasPlayedAndHasWon(session_id, user_id)
         return res_request, 200
     except Exception as e:
         db.rollback()
