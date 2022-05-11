@@ -5,7 +5,6 @@ from tqdm import tqdm
 sys.path.append(os.path.abspath('../'))
 from connexion import DbConnexion
 from word_utils import remove_accents, gensim_get_vector, load_gensim
-import os
 from dotenv import load_dotenv
 
 

@@ -5,7 +5,6 @@ sys.path.append(os.path.abspath('../'))
 from datetime import datetime
 from connexion import DbConnexion
 from ortho import Ortho
-import os
 from dotenv import load_dotenv
 
 

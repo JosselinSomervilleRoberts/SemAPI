@@ -164,8 +164,9 @@ CREATE TABLE activity (
 	id serial PRIMARY KEY,
 	session_id serial NOT NULL,
 	user_id VARCHAR (15),
+	UNIQUE(session_id, user_id),
 	utc_start_ms bigserial,
-	utc_end_ms bigserial,
+	utc_end_ms bigserial DEFAULT 0 NOT NULL,
 	active BOOLEAN DEFAULT True,
 
 	CONSTRAINT fk_sessions
