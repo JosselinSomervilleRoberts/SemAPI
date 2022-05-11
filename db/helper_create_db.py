@@ -97,7 +97,7 @@ if __name__ == "__main__":
         user_id VARCHAR (15),
         UNIQUE(session_id, user_id),
         utc_start_ms bigserial,
-        utc_end_ms bigserial DEFAULT 0 NOT NULL,
+        utc_end_ms bigserial,
         active BOOLEAN DEFAULT True,
 
         CONSTRAINT fk_sessions
