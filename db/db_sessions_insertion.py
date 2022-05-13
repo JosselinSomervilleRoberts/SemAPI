@@ -22,8 +22,9 @@ def load():
                 word_object = Ortho()
                 word_object.load_from_word(db, word)
 
-                neighbors = word_object.get_neighbors(words, 100)
+                neighbors = word_object.get_neighbors(words, 1000)
                 hints = word_object.get_hints(words)
+                print(neighbors)
 
                 try:
                     db.cursor.execute("""INSERT INTO public.sessions (ortho_id, utc_start, utc_stop) 

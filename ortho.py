@@ -138,7 +138,10 @@ class Ortho:
     def rectified_low_score(x):
         if x < 0:
             return Ortho.SCORE_ZERO * (1 + x)
-        return Ortho.SCORE_MIN_NEIGHBOR * (x/Ortho.SCORE_MIN_NEIGHBOR)**(1.5)
+        return Ortho.SCORE_MIN_NEIGHBOR * (x/Ortho.SCORE_MIN_NEIGHBOR)**(1.25)
+
+    def mix_linear_proportional(linear, proportional):
+        return 0.7 * linear + 0.3 * proportional
         
     def __eq__(self, other):
         if not isinstance(other, Ortho):
@@ -190,17 +193,25 @@ class Ortho:
         N_neighbors = len(baseline.neighbors)
         min_neighbor = baseline.neighbors[0].ref_score
         max_neighbor = baseline.neighbors[-1].ref_score
-        for neighbor in baseline.neighbors:
+        for index, neighbor in enumerate(baseline.neighbors):
             if Ortho.similar(self, neighbor):
-                x = neighbor.ref_score - (Ortho.SCORE_MAX_NEIGHBOR - Ortho.SCORE_MIN_NEIGHBOR) / float(N_neighbors - 1.0)  * (1 - Ortho.sim_same_lemma(self, neighbor))
-                return Ortho.SCORE_MIN_NEIGHBOR + (Ortho.SCORE_MAX_NEIGHBOR - Ortho.SCORE_MIN_NEIGHBOR) * (x - min_neighbor) / float(max_neighbor - min_neighbor)
+                dx = (Ortho.SCORE_MAX_NEIGHBOR - Ortho.SCORE_MIN_NEIGHBOR) / float(N_neighbors - 1.0) * (1 - Ortho.sim_same_lemma(self, neighbor))
+                rectified_linear = Ortho.SCORE_MIN_NEIGHBOR + (Ortho.SCORE_MAX_NEIGHBOR - Ortho.SCORE_MIN_NEIGHBOR) * index / float(N_neighbors - 1.0)
+                rectified_linear -= dx
+                x = neighbor.ref_score - dx
+                rectified_proportional = Ortho.SCORE_MIN_NEIGHBOR + (Ortho.SCORE_MAX_NEIGHBOR - Ortho.SCORE_MIN_NEIGHBOR) * (x - min_neighbor) / float(max_neighbor - min_neighbor)
+                return Ortho.mix_linear_proportional(rectified_linear, rectified_proportional)
         
 
         score = naive_score_embeddings(self.vector, baseline.vector)
         score = max(score, naive_score_embeddings(self.lemma.vector, baseline.lemma.vector))
         if score > min_neighbor:
-            return Ortho.SCORE_MIN_NEIGHBOR + (Ortho.SCORE_MAX_NEIGHBOR - Ortho.SCORE_MIN_NEIGHBOR) * (score - min_neighbor) / float(max_neighbor - min_neighbor)
-        
+            rectified_proportional = Ortho.SCORE_MIN_NEIGHBOR + (Ortho.SCORE_MAX_NEIGHBOR - Ortho.SCORE_MIN_NEIGHBOR) * (score - min_neighbor) / float(max_neighbor - min_neighbor)
+            for index, neighbor in enumerate(baseline.neighbors):
+                if score < neighbor.ref_score:
+                    rectified_linear = Ortho.SCORE_MIN_NEIGHBOR + (Ortho.SCORE_MAX_NEIGHBOR - Ortho.SCORE_MIN_NEIGHBOR) * (index - 1) / float(N_neighbors - 1.0)
+                    return Ortho.mix_linear_proportional(rectified_linear, rectified_proportional)
+            
         return Ortho.rectified_low_score(score)
 
 
@@ -220,7 +231,7 @@ class Ortho:
         bisect.insort(self.neighbors, neighbor)
 
 
-    def get_neighbors(self, words, number = 100, clean = True):
+    def get_neighbors(self, words, number = 1000, clean = True):
         neighbors = [self]
         N_neighbors = 0
         
