@@ -47,14 +47,17 @@ class DataManager:
         res = db.cursor.fetchall()
         if res is None:
             raise Exception("Cannot load session with id: %d, because no neighbor where found." % (session_id))
-        baseline.neighbors = [] 
-        for row in res:
+        baseline.neighbors = {}
+        for index, row in enumerate(res):
             neighbor = Ortho()
             neighbor.load_from_id(db, int(row[0]))
             neighbor.ref_score = float(row[1])
-            baseline.neighbors.append(neighbor)
+            neighbor.index = index
+            baseline.neighbors[neighbor.lemma.lemma] = neighbor
         if len(baseline.neighbors) < 2:
             raise Exception("Not even 2 neighbors were found while loading session with id: %d." % session_id)
+        baseline.neighbor_min_error = float(res[0][1])
+        baseline.neighbor_max_error = float(res[-1][1])
 
         # Find the hints
         db.cursor.execute("SELECT ortho_id, rectified_score FROM public.hints WHERE session_id = %d ORDER BY rectified_score ASC" % (session_id))

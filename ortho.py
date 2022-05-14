@@ -33,7 +33,10 @@ class Ortho:
         self.nb_letters = None
         self.vector = None
         self.neighbors = None
+        self.neighbor_min_error = None
+        self.neighbor_max_error = None
         self.ref_score = 0
+        self.index = None
 
     def load_from_json(self, data):
         self.id = data['id']
@@ -138,7 +141,7 @@ class Ortho:
     def rectified_low_score(x):
         if x < 0:
             return Ortho.SCORE_ZERO * (1 + x)
-        return Ortho.SCORE_MIN_NEIGHBOR * (x/Ortho.SCORE_MIN_NEIGHBOR)**(1.25)
+        return Ortho.SCORE_MIN_NEIGHBOR * (x/Ortho.SCORE_MIN_NEIGHBOR)**(1.6)
 
     def mix_linear_proportional(linear, proportional):
         return 0.7 * linear + 0.3 * proportional
@@ -191,26 +194,29 @@ class Ortho:
             return Ortho.SCORE_MAX_NEIGHBOR + (1.0 - Ortho.SCORE_MAX_NEIGHBOR) * Ortho.sim_same_lemma(self, baseline)
         
         N_neighbors = len(baseline.neighbors)
-        min_neighbor = baseline.neighbors[0].ref_score
-        max_neighbor = baseline.neighbors[-1].ref_score
-        for index, neighbor in enumerate(baseline.neighbors):
-            if Ortho.similar(self, neighbor):
-                dx = (Ortho.SCORE_MAX_NEIGHBOR - Ortho.SCORE_MIN_NEIGHBOR) / float(N_neighbors - 1.0) * (1 - Ortho.sim_same_lemma(self, neighbor))
-                rectified_linear = Ortho.SCORE_MIN_NEIGHBOR + (Ortho.SCORE_MAX_NEIGHBOR - Ortho.SCORE_MIN_NEIGHBOR) * index / float(N_neighbors - 1.0)
-                rectified_linear -= dx
-                x = neighbor.ref_score - dx
-                rectified_proportional = Ortho.SCORE_MIN_NEIGHBOR + (Ortho.SCORE_MAX_NEIGHBOR - Ortho.SCORE_MIN_NEIGHBOR) * (x - min_neighbor) / float(max_neighbor - min_neighbor)
-                return Ortho.mix_linear_proportional(rectified_linear, rectified_proportional)
+        min_neighbor = baseline.neighbor_min_error
+        max_neighbor = baseline.neighbor_max_error
+        print(min_neighbor, max_neighbor)
+        if self.lemma.lemma in baseline.neighbors:
+            neighbor = baseline.neighbors[self.lemma.lemma]
+            index = neighbor.index
+            dx = (Ortho.SCORE_MAX_NEIGHBOR - Ortho.SCORE_MIN_NEIGHBOR) / float(N_neighbors - 1.0) * (1 - Ortho.sim_same_lemma(self, neighbor))
+            rectified_linear = Ortho.SCORE_MIN_NEIGHBOR + (Ortho.SCORE_MAX_NEIGHBOR - Ortho.SCORE_MIN_NEIGHBOR) * index / float(N_neighbors - 1.0)
+            rectified_linear -= dx
+            x = neighbor.ref_score - dx
+            rectified_proportional = Ortho.SCORE_MIN_NEIGHBOR + (Ortho.SCORE_MAX_NEIGHBOR - Ortho.SCORE_MIN_NEIGHBOR) * (x - min_neighbor) / float(max_neighbor - min_neighbor)
+            return Ortho.mix_linear_proportional(rectified_linear, rectified_proportional)
         
 
         score = naive_score_embeddings(self.vector, baseline.vector)
         score = max(score, naive_score_embeddings(self.lemma.vector, baseline.lemma.vector))
         if score > min_neighbor:
             rectified_proportional = Ortho.SCORE_MIN_NEIGHBOR + (Ortho.SCORE_MAX_NEIGHBOR - Ortho.SCORE_MIN_NEIGHBOR) * (score - min_neighbor) / float(max_neighbor - min_neighbor)
-            for index, neighbor in enumerate(baseline.neighbors):
-                if score < neighbor.ref_score:
-                    rectified_linear = Ortho.SCORE_MIN_NEIGHBOR + (Ortho.SCORE_MAX_NEIGHBOR - Ortho.SCORE_MIN_NEIGHBOR) * (index - 1) / float(N_neighbors - 1.0)
-                    return Ortho.mix_linear_proportional(rectified_linear, rectified_proportional)
+            return rectified_proportional
+            #for index, neighbor in enumerate(baseline.neighbors):
+            #    if score < neighbor.ref_score:
+            #        rectified_linear = Ortho.SCORE_MIN_NEIGHBOR + (Ortho.SCORE_MAX_NEIGHBOR - Ortho.SCORE_MIN_NEIGHBOR) * (index - 1) / float(N_neighbors - 1.0)
+            #        return Ortho.mix_linear_proportional(rectified_linear, rectified_proportional)
             
         return Ortho.rectified_low_score(score)
 
@@ -231,7 +237,7 @@ class Ortho:
         bisect.insort(self.neighbors, neighbor)
 
 
-    def get_neighbors(self, words, number = 1000, clean = True):
+    def get_neighbors(self, words, number = 1000):
         neighbors = [self]
         N_neighbors = 0
         
@@ -248,12 +254,16 @@ class Ortho:
                 N_neighbors -= 1
 
         neighbors.pop()
-        if clean:
-            self.neighbors = []
-            for neighbor in tqdm(neighbors):
-                self.add_neighbor_if_not_too_similar(neighbor)
-        else:
-            self.neighbors = neighbors
+        self.neighbors = {}
+        for neighbor in tqdm(neighbors):
+            self.add_neighbor_if_not_too_similar(neighbor)
+        dict_neighbor = {}
+        for index, neighbor in enumerate(self.neighbors):
+            dict_neighbor[neighbor.lemma.lemma] = neighbor
+            dict_neighbor[neighbor.lemma.lemma].index = index
+        self.neighbor_min_error = self.neighbors[0].ref_score
+        self.neighbor_max_error = self.neighbors[-1].ref_score
+        self.neighbors = dict_neighbor
         return self.neighbors
 
 
