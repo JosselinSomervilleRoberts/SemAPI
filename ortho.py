@@ -196,7 +196,6 @@ class Ortho:
         N_neighbors = len(baseline.neighbors)
         min_neighbor = baseline.neighbor_min_error
         max_neighbor = baseline.neighbor_max_error
-        print(min_neighbor, max_neighbor)
         if self.lemma.lemma in baseline.neighbors:
             neighbor = baseline.neighbors[self.lemma.lemma]
             index = neighbor.index

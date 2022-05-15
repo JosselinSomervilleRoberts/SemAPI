@@ -175,7 +175,7 @@ def score(args):
     user_id = args.get('user_id', default=None, type=str)
     session_id = args.get('session_id', default=None, type=int)
     correction = args.get('correction', default=True, type=bool)
-    print("correction =", correction)
+    correction = False # TODO(change)
     if word is None:
         return "Missing parameter: word.", 400
 
