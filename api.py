@@ -21,15 +21,18 @@ db = None
 def current_utc_ms():
     return int(1000.0 * datetime.now().timestamp())
 
+def current_time_s():
+    return int(datetime.now().timestamp()) + 3600 * 2
+
 def current_session_id():
     global db, dm
-    current_utc = int(datetime.now().timestamp())
-    return dm.get_session_id(db, current_utc)
+    current_t = current_time_s()
+    return dm.get_session_id(db, current_t)
     
 def yesterday_session_id():
     global db, dm
-    yesterday_utc = int(datetime.now().timestamp()) - 3600*24
-    return dm.get_session_id(db, yesterday_utc)
+    yesterday_t = current_time_s() - 3600*24
+    return dm.get_session_id(db, yesterday_t)
 
 def LogRequest(method, route, params, status, user_needed = True):
     global db
