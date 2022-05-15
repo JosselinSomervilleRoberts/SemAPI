@@ -45,7 +45,8 @@ def load():
                 session_id = int(res[0])
 
                 print(word, "->", neighbors)
-                for neighbor in neighbors:
+                for neighbor_key in neighbors:
+                    neighbor = neighbors[neighbor_key]
                     try:
                         db.cursor.execute("""INSERT INTO public.closest_words (session_id, ortho_id, score) 
                                             VALUES(%s, %s, %s)""", 
