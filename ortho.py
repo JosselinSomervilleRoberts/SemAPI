@@ -254,7 +254,7 @@ class Ortho:
                 N_neighbors -= 1
 
         neighbors.pop()
-        self.neighbors = {}
+        self.neighbors = []
         for neighbor in tqdm(neighbors):
             self.add_neighbor_if_not_too_similar(neighbor)
         dict_neighbor = {}
