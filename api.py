@@ -373,7 +373,7 @@ def ranking_all(args):
                     res["name"].append(row[0])
                     res["tag"].append(row[1])
                     res["score"].append(row[2])
-                    res["nb_attempts"].append(999)
+                    res["nb_attempts"].append(row[2])
                     res["has_won"].append(False)
             except Exception as e:
                 db.rollback()
