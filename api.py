@@ -355,6 +355,30 @@ def ranking_all(args):
             res["score"].append(row[2])
             res["nb_attempts"].append(row[3])
             res["has_won"].append(row[4])
+
+        n = len(res_query)
+        if n < count:
+            try:
+                db.cursor.execute("""SELECT u.name, u.tag, MAX(s.score) AS maxx
+                            FROM scores AS s
+                            JOIN users AS u
+                            ON s.user_id = u.user_id
+                            WHERE s.session_id = %s
+                            GROUP BY u.name, u.tag
+                            ORDER BY maxx DESC, COUNT(*) ASC
+                            LIMIT %s OFFSET %s""",
+                            (session_id, count-n, index_start+n))
+                res_query = db.cursor.fetchall()
+                for row in res_query:
+                    res["name"].append(row[0])
+                    res["tag"].append(row[1])
+                    res["score"].append(row[2])
+                    res["nb_attempts"].append(999)
+                    res["has_won"].append(False)
+            except Exception as e:
+                db.rollback()
+                return 'Internal error: %s' %e, 500 
+
         return res, 200
     except Exception as e:
         db.rollback()
