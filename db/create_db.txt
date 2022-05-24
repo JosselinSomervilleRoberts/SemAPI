@@ -179,3 +179,105 @@ CREATE TABLE activity (
 	  		REFERENCES users(user_id )
 				ON DELETE CASCADE
 );
+
+
+CREATE TABLE closest_lemmas (
+	lemma_id1 serial NOT NULL,
+	lemma_id2 serial NOT NULL,
+	UNIQUE(lemma_id1, lemma_id2),
+	rank INTEGER NOT NULL,
+	score FLOAT DEFAULT 0 NOT NULL,
+
+    CONSTRAINT fk_lemmas1
+  	    	FOREIGN KEY(lemma_id1)
+			REFERENCES lemmas(lemma_id)
+			ON DELETE CASCADE,
+
+    CONSTRAINT fk_lemmas2
+  	    	FOREIGN KEY(lemma_id2)
+			REFERENCES lemmas(lemma_id)
+			ON DELETE CASCADE
+);
+
+CREATE TABLE score_corrections (
+	id serial PRIMARY KEY,
+	session_id serial NOT NULL,
+	lemma_id serial NOT NULL,
+	UNIQUE(session_id, lemma_id),
+	coefficient FLOAT DEFAULT 0 NOT NULL,
+
+	CONSTRAINT fk_sessions
+      		FOREIGN KEY(session_id)
+	  		REFERENCES sessions(session_id )
+				ON DELETE CASCADE,
+
+    CONSTRAINT fk_lemmas
+  	    	FOREIGN KEY(lemma_id)
+			REFERENCES lemmas(lemma_id)
+			ON DELETE CASCADE
+);
+
+CREATE TABLE scores_computed (
+	score_id serial PRIMARY KEY,
+	session_id serial NOT NULL,
+	lemma_id serial NOT NULL,
+	UNIQUE(session_id, lemma_id),
+	rank INTEGER NOT NULL,
+	score FLOAT DEFAULT 0 NOT NULL,
+
+	CONSTRAINT fk_sessions
+      		FOREIGN KEY(session_id)
+	  		REFERENCES sessions(session_id )
+				ON DELETE CASCADE,
+
+    CONSTRAINT fk_lemmas
+  	    	FOREIGN KEY(lemma_id)
+			REFERENCES lemmas(lemma_id)
+			ON DELETE CASCADE
+);
+
+
+CREATE TABLE fr_lemmas (
+	lemma_id serial PRIMARY KEY,
+	lemma VARCHAR (32) NOT NULL,
+	lemma_na VARCHAR (32) NOT NULL,
+    type VARCHAR(8),
+    UNIQUE(lemma, type),
+	freq FLOAT DEFAULT 0,
+	vector FLOAT ARRAY[700] NOT NULL
+);
+
+CREATE TABLE fr_orthos (
+    ortho_id serial PRIMARY KEY,
+    lemma_id serial NOT NULL,
+	ortho VARCHAR (32) UNIQUE NOT NULL,
+	ortho_na VARCHAR (32) NOT NULL,
+    freq FLOAT DEFAULT 0,
+    genre VARCHAR (2) DEFAULT '',
+    number VARCHAR (2) DEFAULT '',
+    nb_syll SMALLINT,
+    nb_letters SMALLINT NOT NULL,
+
+    CONSTRAINT fk_lemmas
+  	    	FOREIGN KEY(lemma_id)
+			REFERENCES fr_lemmas(lemma_id)
+			ON DELETE CASCADE
+);
+
+CREATE TABLE fr_closest_lemmas (
+	lemma_id1 serial NOT NULL,
+	lemma_id2 serial NOT NULL,
+	UNIQUE(lemma_id1, lemma_id2),
+	rank INTEGER NOT NULL,
+	similarity FLOAT DEFAULT 0 NOT NULL,
+
+    CONSTRAINT fk_lemmas1
+  	    	FOREIGN KEY(lemma_id1)
+			REFERENCES fr_lemmas(lemma_id)
+			ON DELETE CASCADE,
+
+    CONSTRAINT fk_lemmas2
+  	    	FOREIGN KEY(lemma_id2)
+			REFERENCES fr_lemmas(lemma_id)
+			ON DELETE CASCADE
+);

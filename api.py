@@ -579,7 +579,7 @@ def hint_nb_letters(args):
 
 @app.route('/hint/nb-syllables', methods=['GET'])
 def request_hint_nb_syllables():
-    res, status = hint_nb_syllables(request.args, status)
+    res, status = hint_nb_syllables(request.args)
     try:
         LogRequest('GET', '/hint/nb-syllables', request.args, status)
     except Exception as e:

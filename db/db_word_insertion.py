@@ -41,6 +41,7 @@ def load():
     print(row_count)
     tsv_file.seek(0)
     read_tsv = csv.reader(tsv_file, delimiter="\t")
+    nb_people_and_name = 0
 
     with tqdm(total=row_count) as pbar:
         # Looping through dataset
@@ -64,10 +65,11 @@ def load():
                         genre = 'm'
                     data["genre"].append(genre)
                     data["number"].append(None)
-                    data["freq_lemma"].append(float(get(row, 'TotalPageViews')))
-                    data["freq"].append(float(get(row, 'TotalPageViews')))
+                    data["freq_lemma"].append(float(get(row, 'TotalPageViews')) / 100.0)
+                    data["freq"].append(float(get(row, 'TotalPageViews')) / 100.0)
                     data["nb_syll"].append(None)
                     data["nb_letters"].append(len(ortho))
+                    nb_people_and_name += 1
 
                     if " " in ortho:
                         ortho = ortho.split(" ")[0]
@@ -84,8 +86,46 @@ def load():
                             data["freq"].append(float(get(row, 'TotalPageViews')))
                             data["nb_syll"].append(None)
                             data["nb_letters"].append(len(ortho))
+                            nb_people_and_name += 1
             index += 1
 
+
+
+    # Open dataset cities
+    tsv_file = open("../data/villes_france.csv", "r", encoding="utf-8")
+    print("Counting lines cities (VILLE_THRESHOD = %d) ... " % VILLE_THRESHOD, end='')
+    row_count = sum(1 for row in tsv_file)  # fileObject is your csv.reader
+    print(row_count)
+    tsv_file.seek(0)
+    read_tsv = csv.reader(tsv_file, delimiter=",")
+    nb_cities = 0
+
+    with tqdm(total=row_count) as pbar:
+        # Looping through dataset
+        index = 0
+        for row in read_tsv:
+            pbar.update(1)
+            if index == 0:
+                header = row
+            else:
+                ortho = cleanup(row[2].replace('\"', ''))
+                nombre = int(row[14].replace('\"', ''))
+
+                if valid_word(ortho) and nombre >= VILLE_THRESHOD:
+                    # Get word and lemma's infos
+                    data["ortho"].append(ortho)
+                    data["ortho_na"].append(remove_accents(ortho))
+                    data["lemma"].append(ortho)
+                    data["lemma_na"].append(remove_accents(ortho))
+                    data["type_lemma"].append("NP:city")
+                    data["genre"].append(None)
+                    data["number"].append(None)
+                    data["freq_lemma"].append(float(nombre) / VILLE_THRESHOD)
+                    data["freq"].append(float(nombre) / VILLE_THRESHOD)
+                    data["nb_syll"].append(None)
+                    data["nb_letters"].append(len(ortho))
+                    nb_cities += 1
+            index += 1
 
 
     # Open dataset countries
@@ -138,42 +178,6 @@ def load():
 
 
 
-    # Open dataset cities
-    tsv_file = open("../data/villes_france.csv", "r", encoding="utf-8")
-    print("Counting lines cities (VILLE_THRESHOD = %d) ... " % VILLE_THRESHOD, end='')
-    row_count = sum(1 for row in tsv_file)  # fileObject is your csv.reader
-    print(row_count)
-    tsv_file.seek(0)
-    read_tsv = csv.reader(tsv_file, delimiter=",")
-
-    with tqdm(total=row_count) as pbar:
-        # Looping through dataset
-        index = 0
-        for row in read_tsv:
-            pbar.update(1)
-            if index == 0:
-                header = row
-            else:
-                ortho = cleanup(row[2].replace('\"', ''))
-                nombre = int(row[14].replace('\"', ''))
-
-                if valid_word(ortho) and nombre >= VILLE_THRESHOD:
-                    # Get word and lemma's infos
-                    data["ortho"].append(ortho)
-                    data["ortho_na"].append(remove_accents(ortho))
-                    data["lemma"].append(ortho)
-                    data["lemma_na"].append(remove_accents(ortho))
-                    data["type_lemma"].append("NP:city")
-                    data["genre"].append(None)
-                    data["number"].append(None)
-                    data["freq_lemma"].append(float(nombre) / VILLE_THRESHOD)
-                    data["freq"].append(float(nombre) / VILLE_THRESHOD)
-                    data["nb_syll"].append(None)
-                    data["nb_letters"].append(len(ortho))
-            index += 1
-
-
-
     # Open dataset words
     tsv_file = open("../data/Lexique383.tsv", "r", encoding="utf-8")
     print("Counting lines lexique... ", end='')
@@ -214,9 +218,12 @@ def load():
     # LOAD DB AND GENSIM
     db = DbConnexion()
     db.connect()
-    load_gensim("../data/wiki.fr.bin")
+    from gensim.models import KeyedVectors
+    model = KeyedVectors.load_word2vec_format("../data/frWac_no_postag_no_phrase_700_skip_cut50.bin", binary=True, unicode_errors="ignore")
 
     # INSERT INTO DB
+    lemmas = {}
+    orthos = {}
     for i in tqdm(range(len(data['ortho']))):
         ortho = data["ortho"][i]
         ortho_na = data["ortho_na"][i]
@@ -232,25 +239,26 @@ def load():
 
         vec_lemma = None
         try:
-            vec_lemma = gensim_get_vector(lemma).tolist()
+            vec_lemma = model[lemma].tolist()
         except Exception as e:
-            print("Lemma %s not known by gensim." % lemma, e)
+            if i >= nb_cities + nb_people_and_name:
+                print("Lemma %s not known by gensim." % lemma, e)
 
         if not vec_lemma is None:
             # Get the Lemma ID and insert it if necessary
             lemma_id = None
             db.cursor.execute("""SELECT lemma_id 
-                                FROM lemmas WHERE lemma = %s""", 
+                                FROM fr_lemmas WHERE lemma = %s""", 
                                 (lemma,))
             res = db.cursor.fetchone() 
             if res is None:
                 try:
-                    db.cursor.execute("""INSERT INTO lemmas(lemma, lemma_na, freq, type, vector) 
+                    db.cursor.execute("""INSERT INTO fr_lemmas(lemma, lemma_na, freq, type, vector) 
                                         VALUES(%s, %s, %s, %s, %s)""", 
                                         (lemma, lemma_na, freq_lemma, type_lemma, vec_lemma))
                     db.connexion.commit()
                     db.cursor.execute("""SELECT lemma_id 
-                                        FROM lemmas WHERE lemma = %s""", 
+                                        FROM fr_lemmas WHERE lemma = %s""", 
                                         (lemma,))
                     res = db.cursor.fetchone()
                     if res is None:
@@ -262,29 +270,26 @@ def load():
 
             if not vec_lemma is None:
                 lemma_id = int(res[0])
+                lemmas[lemma] = lemma_id
 
                 # Insert the word
-                vec_ortho = None
                 try:
-                    vec_ortho = gensim_get_vector(ortho).tolist()
-                except Exception as e:
-                    vec_ortho = vec_lemma
-                    print("Ortho %s not known by gensim - Using vector of its lemma %s" % (ortho, lemma), e)
-                try:
-                    db.cursor.execute("""INSERT INTO orthos(lemma_id, ortho, ortho_na, genre, number, freq, nb_syll, nb_letters, vector) 
-                                        VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s)""", 
-                                        (lemma_id, ortho, ortho_na, genre, number, freq, nb_syll, nb_letters, vec_ortho))
+                    db.cursor.execute("""INSERT INTO fr_orthos(lemma_id, ortho, ortho_na, genre, number, freq, nb_syll, nb_letters) 
+                                        VALUES(%s, %s, %s, %s, %s, %s, %s, %s)""", 
+                                        (lemma_id, ortho, ortho_na, genre, number, freq, nb_syll, nb_letters))
                     db.connexion.commit()
+                    orthos[ortho] = lemma_id
                 except Exception as e:
+                    #print(e)
                     try:
                         db.connexion.commit()
                         db.cursor.execute("""SELECT ortho_id, freq 
-                                            FROM orthos 
+                                            FROM fr_orthos 
                                             WHERE ortho = %s""", 
                                             (ortho,))
                         res = db.cursor.fetchone()
                         if freq > int(res[1]):
-                            db.cursor.execute("""UPDATE orthos 
+                            db.cursor.execute("""UPDATE fr_orthos 
                                                 SET lemma_id = %s, genre = %s, number =  %s, freq = %s WHERE ortho_id = %s""", 
                                                 (lemma_id, genre, number, freq, res[0]))
                     except Exception as e:        
@@ -293,8 +298,29 @@ def load():
             else:
                 print('\t-Ignoring word %s' % ortho)
 
-
-
+    # INSERT MOST SIMILAR INTO DB
+    for lemma in tqdm(lemmas.keys()):
+        lemma_id = lemmas[lemma]
+        similar = model.most_similar(lemma, topn=500)
+        n_count = 0
+        db.cursor.execute("""INSERT INTO public.fr_closest_lemmas (lemma_id1, lemma_id2, rank, similarity) 
+                            VALUES(%s, %s, %s, %s)""", 
+                            (lemma_id, lemma_id, 0, 1.0))         
+        db.connexion.commit()
+        for elt_similar in similar:
+            if n_count < 300 and elt_similar[0] in orthos:
+                try:
+                    lemma2_id = orthos[elt_similar[0]]
+                    similarity = elt_similar[1]
+                    db.cursor.execute("""INSERT INTO public.fr_closest_lemmas (lemma_id1, lemma_id2, rank, similarity) 
+                                        VALUES(%s, %s, %s, %s)""", 
+                                        (lemma_id, lemma2_id, 1 + n_count, similarity))         
+                    db.connexion.commit()
+                    n_count += 1
+                except Exception as e:
+                    db.rollback()
+                    lemma2 = elt_similar[0]
+                    #print("Could not insert neighbor.", lemma2, e)
 
 
 if __name__ == "__main__":

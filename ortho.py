@@ -8,11 +8,11 @@ from tqdm import tqdm
 from scipy.spatial import distance
 
 
-def distance_embeddings(emb1, emb2):
+def DEPRECATED_distance_embeddings(emb1, emb2):
     return distance.cosine(emb1, emb2)
 
-def naive_score_embeddings(emb1, emb2):
-    return max(0, 1 - abs(distance_embeddings(emb1, emb2)))
+def DEPRECATED_naive_score_embeddings(emb1, emb2):
+    return max(0, 1 - abs(DEPRECATED_distance_embeddings(emb1, emb2)))
 
 class Ortho:
 
@@ -37,6 +37,9 @@ class Ortho:
         self.neighbor_max_error = None
         self.ref_score = 0
         self.index = None
+
+    def get_score(self, session_id: int) -> float:
+        return self.lemma.get_score(session_id)
 
     def load_from_json(self, data):
         self.id = data['id']
@@ -132,18 +135,18 @@ class Ortho:
         return words
 
 
-    def similar(w1, w2):
+    def DEPRECATED_similar(w1, w2):
         return (not w1.lemma is None) and (w1.lemma == w2.lemma)
 
-    def sim_same_lemma(w1, w2):
-        return 0.9 * max(0, naive_score_embeddings(w1.vector, w2.vector) - Ortho.SIMILIRARITY_MIN) / (1.0 - Ortho.SIMILIRARITY_MIN)
+    def DEPRECATED_sim_same_lemma(w1, w2):
+        return 0.9 * max(0, DEPRECATED_naive_score_embeddings(w1.vector, w2.vector) - Ortho.SIMILIRARITY_MIN) / (1.0 - Ortho.SIMILIRARITY_MIN)
 
-    def rectified_low_score(x):
+    def DEPRECATED_rectified_low_score(x):
         if x < 0:
             return Ortho.SCORE_ZERO * (1 + x)
         return Ortho.SCORE_MIN_NEIGHBOR * (x/Ortho.SCORE_MIN_NEIGHBOR)**(1.6)
 
-    def mix_linear_proportional(linear, proportional):
+    def DEPRECATED_mix_linear_proportional(linear, proportional):
         return 0.7 * linear + 0.3 * proportional
         
     def __eq__(self, other):
@@ -172,8 +175,8 @@ class Ortho:
     def __repr__(self):
         return str(self)
 
-    def compute_naive_score(self, other_word):
-        score = naive_score_embeddings(self.vector, other_word.vector)
+    def DEPRECATED_compute_naive_score(self, other_word):
+        score = DEPRECATED_naive_score_embeddings(self.vector, other_word.vector)
         return score
 
     def get_corrected(self, db):
@@ -187,11 +190,11 @@ class Ortho:
         except:
             return None
 
-    def compute_rectified_score(self, baseline):
+    def DEPRECATED_compute_rectified_score(self, baseline):
         if self.id == baseline.id: # Found the right word
             return 1
-        if Ortho.similar(self, baseline): # The right word is in the same family
-            return Ortho.SCORE_MAX_NEIGHBOR + (1.0 - Ortho.SCORE_MAX_NEIGHBOR) * Ortho.sim_same_lemma(self, baseline)
+        if Ortho.DEPRECATED_similar(self, baseline): # The right word is in the same family
+            return Ortho.SCORE_MAX_NEIGHBOR + (1.0 - Ortho.SCORE_MAX_NEIGHBOR) * Ortho.DEPRECATED_sim_same_lemma(self, baseline)
         
         N_neighbors = len(baseline.neighbors)
         min_neighbor = baseline.neighbor_min_error
@@ -199,16 +202,16 @@ class Ortho:
         if self.lemma.lemma in baseline.neighbors:
             neighbor = baseline.neighbors[self.lemma.lemma]
             index = neighbor.index
-            dx = (Ortho.SCORE_MAX_NEIGHBOR - Ortho.SCORE_MIN_NEIGHBOR) / float(N_neighbors - 1.0) * (1 - Ortho.sim_same_lemma(self, neighbor))
+            dx = (Ortho.SCORE_MAX_NEIGHBOR - Ortho.SCORE_MIN_NEIGHBOR) / float(N_neighbors - 1.0) * (1 - Ortho.DEPRECATED_sim_same_lemma(self, neighbor))
             rectified_linear = Ortho.SCORE_MIN_NEIGHBOR + (Ortho.SCORE_MAX_NEIGHBOR - Ortho.SCORE_MIN_NEIGHBOR) * index / float(N_neighbors - 1.0)
             rectified_linear -= dx
             x = neighbor.ref_score - dx
             rectified_proportional = Ortho.SCORE_MIN_NEIGHBOR + (Ortho.SCORE_MAX_NEIGHBOR - Ortho.SCORE_MIN_NEIGHBOR) * (x - min_neighbor) / float(max_neighbor - min_neighbor)
-            return Ortho.mix_linear_proportional(rectified_linear, rectified_proportional)
+            return Ortho.DEPRECATED_mix_linear_proportional(rectified_linear, rectified_proportional)
         
 
-        score = naive_score_embeddings(self.vector, baseline.vector)
-        score = max(score, naive_score_embeddings(self.lemma.vector, baseline.lemma.vector))
+        score = DEPRECATED_naive_score_embeddings(self.vector, baseline.vector)
+        score = max(score, DEPRECATED_naive_score_embeddings(self.lemma.vector, baseline.lemma.vector))
         if score > min_neighbor:
             rectified_proportional = Ortho.SCORE_MIN_NEIGHBOR + (Ortho.SCORE_MAX_NEIGHBOR - Ortho.SCORE_MIN_NEIGHBOR) * (score - min_neighbor) / float(max_neighbor - min_neighbor)
             return rectified_proportional
@@ -217,17 +220,17 @@ class Ortho:
             #        rectified_linear = Ortho.SCORE_MIN_NEIGHBOR + (Ortho.SCORE_MAX_NEIGHBOR - Ortho.SCORE_MIN_NEIGHBOR) * (index - 1) / float(N_neighbors - 1.0)
             #        return Ortho.mix_linear_proportional(rectified_linear, rectified_proportional)
             
-        return Ortho.rectified_low_score(score)
+        return Ortho.DEPRECATED_rectified_low_score(score)
 
 
-    def add_neighbor_if_not_too_similar(self, neighbor):
+    def DEPRECATED_add_neighbor_if_not_too_similar(self, neighbor):
         # Remove non words
         if not(isword(neighbor.ortho)):
             return
 
         # Update existing neighbors
         for i in range(len(self.neighbors)):
-            if Ortho.similar(neighbor, self.neighbors[i]):
+            if Ortho.DEPRECATED_similar(neighbor, self.neighbors[i]):
                 if neighbor.ref_score > self.neighbors[i].ref_score:
                     self.neighbors[i] = neighbor
                 return
@@ -236,16 +239,16 @@ class Ortho:
         bisect.insort(self.neighbors, neighbor)
 
 
-    def get_neighbors(self, words, number = 1000):
+    def DEPRECATED_get_neighbors(self, words, number = 1000):
         neighbors = [self]
         N_neighbors = 0
         
         for word in tqdm(words):
-            score = naive_score_embeddings(self.vector, word.vector)
+            score = DEPRECATED_naive_score_embeddings(self.vector, word.vector)
             word.ref_score = score
 
             idx = bisect.bisect_left(neighbors, word)
-            if (not "NP" in word.lemma.type) and not(Ortho.similar(self, word)) and idx > 0 and neighbors[idx - 1].id != word.id:
+            if (not "NP" in word.lemma.type) and not(Ortho.DEPRECATED_similar(self, word)) and idx > 0 and neighbors[idx - 1].id != word.id:
                 neighbors.insert(idx, word)
                 N_neighbors += 1
             if N_neighbors > number:
@@ -255,7 +258,7 @@ class Ortho:
         neighbors.pop()
         self.neighbors = []
         for neighbor in tqdm(neighbors):
-            self.add_neighbor_if_not_too_similar(neighbor)
+            self.DEPRECATED_add_neighbor_if_not_too_similar(neighbor)
         dict_neighbor = {}
         for index, neighbor in enumerate(self.neighbors):
             dict_neighbor[neighbor.lemma.lemma] = neighbor
@@ -266,7 +269,7 @@ class Ortho:
         return self.neighbors
 
 
-    def get_hints(self, words):
+    def DEPRECATED_get_hints(self, words):
         NB_HINTS_MAX = 5
         RES_HINT = 0.05
         TOLERANCE_HINT = 0.005

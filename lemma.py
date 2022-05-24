@@ -10,6 +10,10 @@ class Lemma:
         self.type = None
         self.freq = 0
         self.vector = None
+        self.comparator = 0
+
+    def get_score(self, session_id: int):
+        return 0
 
     def load_from_json(self, data):
         self.id = data['id']
@@ -18,6 +22,31 @@ class Lemma:
         self.type = data['type']
         self.freq = data['freq']
         self.vector = data['vector']
+
+    def load_all(db):
+        LIMIT = 5000
+        last_id = -1
+        lemmas = []
+        res = [None]
+        print("Loading all lemmas ", end = "")
+
+        while len(res) > 0:
+            print(".", end="")
+            db.cursor.execute("""SELECT lemma_id, lemma, lemma_na, type, freq, vector
+                                FROM public.lemmas
+                                WHERE lemma_id > %s 
+                                ORDER BY lemma_id ASC LIMIT %s""",
+                                (last_id, LIMIT))
+            res = db.cursor.fetchall()
+            
+            for row in res:
+                last_id = int(row[0])
+                data = {"id": int(row[0]), "lemma": row[1], "lemma_na": row[2], "type": row[3], "freq": float(row[4]), "vector": np.array(row[5])}
+                lemma = Lemma()
+                lemma.load_from_json(data)
+                lemmas.append(lemma)
+        print("")
+        return lemmas
 
     def load_from_db_res(self, db):
         res = db.cursor.fetchone()
@@ -65,6 +94,18 @@ class Lemma:
             raise Exception("Lemma are only comparable to Lemma, not to {0}".format(type(other)))
         else:
             return self.id.__eq__(other.id)
+
+    def __gt__(self, other):
+        if not isinstance(other, Lemma):
+            raise Exception("Lemma are only comparable to Lemma, not to {0}".format(type(other)))
+        else:
+            return self.comparator.__gt__(other.comparator)
+
+    def __lt__(self, other):
+        if not isinstance(other, Lemma):
+            raise Exception("Lemma are only comparable to Lemma, not to {0}".format(type(other)))
+        else:
+            return self.comparator.__lt__(other.comparator)
 
     def __str__(self):
         return str(self.lemma)
