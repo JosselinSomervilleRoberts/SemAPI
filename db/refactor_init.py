@@ -17,7 +17,7 @@ lemmas_temp = Ortho.load_all(db)
 lemmas = []
 for lemma in lemmas_temp:
     if "NP" not in lemma.lemma.type and len(lemma.ortho) > 3:
-        lemma.ref_score = lemma.freq
+        lemma.comparator = lemma.freq
         bisect.insort(lemmas, lemma)
 lemmas = lemmas[::-1][:50000]
 NB_LEMMAS = 100

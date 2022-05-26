@@ -1,3 +1,4 @@
+from __future__ import annotations
 from word_utils import lemmatize, isword, correct, remove_accents
 from lemma import Lemma
 import numpy as np
@@ -6,6 +7,8 @@ import math
 import collections
 from tqdm import tqdm
 from scipy.spatial import distance
+from connexion import DbConnexion
+from typing import List
 
 
 def DEPRECATED_distance_embeddings(emb1, emb2):
@@ -31,17 +34,16 @@ class Ortho:
         self.genre = None
         self.nb_syll = None
         self.nb_letters = None
-        self.vector = None
         self.neighbors = None
         self.neighbor_min_error = None
         self.neighbor_max_error = None
-        self.ref_score = 0
+        self.comparator = None
         self.index = None
 
     def get_score(self, session_id: int) -> float:
         return self.lemma.get_score(session_id)
 
-    def load_from_json(self, data):
+    def load_from_json(self, data: dict) -> None:
         self.id = data['id']
         self.ortho = data['ortho']
         self.ortho_na = data['ortho_na']
@@ -56,7 +58,7 @@ class Ortho:
         self.lemma = Lemma()
         self.lemma.load_from_json(data['lemma'])
 
-    def load_from_db_res(self, db):
+    def load_from_db_res(self, db: DbConnexion) -> None:
         res = db.cursor.fetchone()
         if res is None:
             raise Exception("Could not load Ortho")
@@ -70,42 +72,41 @@ class Ortho:
         if not self.nb_syll is None:
             self.nb_syll = int(self.nb_syll)
         self.nb_letters = int(res[7])
-        self.vector = np.array(res[8])
         self.lemma = Lemma()
-        if len(res) > 9:      
-            self.lemma.load_from_id(db, res[9])
+        if len(res) > 8:      
+            self.lemma.load_from_id(db, res[8])
 
-    def load_from_id(self, db, id):
+    def load_from_id(self, db: DbConnexion, id: int) -> None:
         if id is None:
             raise Exception("Cannot load Ortho from id if the id is not set. (id: %d)" % (id))
-        db.cursor.execute("""SELECT ortho_id, ortho, ortho_na, freq, number, genre, nb_syll, nb_letters, vector, lemma_id
-                            FROM public.orthos 
+        db.cursor.execute("""SELECT ortho_id, ortho, ortho_na, freq, number, genre, nb_syll, nb_letters, lemma_id
+                            FROM public.fr_orthos 
                             WHERE ortho_id = %s""",
                             (id,))
         self.load_from_db_res(db)
         
-    def load_from_word(self, db, word):
+    def load_from_word(self, db: DbConnexion, word: str) -> None:
         word_na = remove_accents(word)
         if word is None:
             raise Exception("Cannot load Ortho from word if word is not set. (word: %s)" % (word))
-        db.cursor.execute("""SELECT ortho_id, ortho, ortho_na, freq, number, genre, nb_syll, nb_letters, vector, lemma_id
-                            FROM public.orthos 
+        db.cursor.execute("""SELECT ortho_id, ortho, ortho_na, freq, number, genre, nb_syll, nb_letters, lemma_id
+                            FROM public.fr_orthos 
                             WHERE ortho_na = %s""",
                             (word_na,))
         self.load_from_db_res(db)
 
-    def load_like_word(self, db, word):
+    def load_like_word(self, db: DbConnexion, word: str) -> None:
         word_na = remove_accents(word)
         if word is None:
             raise Exception("Cannot load Ortho like word if word is not set. (word: %s)" % (word))
-        db.cursor.execute("""SELECT ortho_id, ortho, ortho_na, freq, number, genre, nb_syll, nb_letters, vector, lemma_id
-                            FROM public.orthos 
+        db.cursor.execute("""SELECT ortho_id, ortho, ortho_na, freq, number, genre, nb_syll, nb_letters, lemma_id
+                            FROM public.fr_orthos 
                             WHERE ortho_na LIKE = %s
                             ORDER BY freq  DESC LIMIT 1""",
                             ("%" + word_na + "%",))
         self.load_from_db_res(db)
 
-    def load_all(db):
+    def load_all(db: DbConnexion) -> List[Ortho]:
         LIMIT = 5000
         last_id = -1
         words = []
@@ -114,10 +115,10 @@ class Ortho:
 
         while len(res) > 0:
             print(".", end="")
-            db.cursor.execute("""SELECT ortho_id, ortho, ortho_na, o.freq, number, genre, nb_syll, nb_letters, o.vector, 
+            db.cursor.execute("""SELECT ortho_id, ortho, ortho_na, o.freq, number, genre, nb_syll, nb_letters, 
                                 l.lemma_id, lemma, lemma_na, type, l.freq, l.vector
-                                FROM public.orthos AS o
-                                JOIN lemmas AS l ON l.lemma_id = o.lemma_id
+                                FROM public.fr_orthos AS o
+                                JOIN fr_lemmas AS l ON l.lemma_id = o.lemma_id
                                 WHERE ortho_id > %s 
                                 ORDER BY ortho_id ASC LIMIT %s""",
                                 (last_id, LIMIT))
@@ -126,60 +127,41 @@ class Ortho:
             for row in res:
                 last_id = int(row[0])
                 data = {"id": int(row[0]), "ortho": row[1], "ortho_na": row[2], "freq": float(row[3]), "number": row[4],
-                "genre": row[5], "nb_syll": row[6], "nb_letters": int(row[7]), "vector": np.array(row[8]),
-                "lemma": {"id": int(row[9]), "lemma": row[10], "lemma_na": row[11], "type": row[12], "freq": float(row[13]), "vector": np.array(row[14])}}
+                "genre": row[5], "nb_syll": row[6], "nb_letters": int(row[7]),
+                "lemma": {"id": int(row[8]), "lemma": row[9], "lemma_na": row[10], "type": row[11], "freq": float(row[12]), "vector": np.array(row[13])}}
                 word = Ortho()
                 word.load_from_json(data)
                 words.append(word)
         print("")
         return words
-
-
-    def DEPRECATED_similar(w1, w2):
-        return (not w1.lemma is None) and (w1.lemma == w2.lemma)
-
-    def DEPRECATED_sim_same_lemma(w1, w2):
-        return 0.9 * max(0, DEPRECATED_naive_score_embeddings(w1.vector, w2.vector) - Ortho.SIMILIRARITY_MIN) / (1.0 - Ortho.SIMILIRARITY_MIN)
-
-    def DEPRECATED_rectified_low_score(x):
-        if x < 0:
-            return Ortho.SCORE_ZERO * (1 + x)
-        return Ortho.SCORE_MIN_NEIGHBOR * (x/Ortho.SCORE_MIN_NEIGHBOR)**(1.6)
-
-    def DEPRECATED_mix_linear_proportional(linear, proportional):
-        return 0.7 * linear + 0.3 * proportional
         
-    def __eq__(self, other):
+    def __eq__(self, other: Ortho) -> bool:
         if not isinstance(other, Ortho):
             raise Exception("Ortho are only comparable to Ortho, not to {0}".format(type(other)))
         else:
             return self.id.__eq__(self.id)
 
-    def __gt__(self, other):
+    def __gt__(self, other: Ortho) -> bool:
         if not isinstance(other, Ortho):
             raise Exception("Ortho are only comparable to Ortho, not to {0}".format(type(other)))
         else:
-            return self.ref_score.__gt__(other.ref_score)
+            return self.comparator.__gt__(other.comparator)
 
-    def __lt__(self, other):
+    def __lt__(self, other: Ortho) -> bool:
         if not isinstance(other, Ortho):
             raise Exception("Ortho are only comparable to Ortho, not to {0}".format(type(other)))
         else:
-            return self.ref_score.__lt__(other.ref_score)
+            return self.comparator.__lt__(other.comparator)
 
-    def __str__(self):
+    def __str__(self) -> str:
         if self.id is None:
             return str(self.ortho)
-        return  "%s - %s (%d): %s" % (self.ortho, str(self.lemma).upper(), self.id, str(self.ref_score))
+        return  "%s - %s (%d)" % (self.ortho, str(self.lemma).upper(), self.id)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self)
 
-    def DEPRECATED_compute_naive_score(self, other_word):
-        score = DEPRECATED_naive_score_embeddings(self.vector, other_word.vector)
-        return score
-
-    def get_corrected(self, db):
+    def get_corrected(self, db: DbConnexion) -> Ortho:
         word_corrected = correct(self.ortho)
         if word_corrected == self.ortho:
             return None

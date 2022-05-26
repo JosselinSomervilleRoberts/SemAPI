@@ -37,5 +37,5 @@ while continuer:
                 bisect.insort(sorted_lemmas, lemma2)
             sorted_lemmas.reverse()
 
-            for i in range(50):
+            for i in range(20):
                 print(sorted_lemmas[i].comparator, "-", sorted_lemmas[i])

@@ -29,7 +29,7 @@ paths:
       summary: Returns the current session id.
       parameters:
         - in: query
-          name: user_id
+          name: user
           required: true
           schema:
             type: string
@@ -54,7 +54,7 @@ paths:
       summary: Returns a score between 0 and 1 for a given word.
       parameters:
         - in: query
-          name: user_id
+          name: user
           required: true
           schema:
             type: string
@@ -89,7 +89,7 @@ paths:
                   session_id:
                     type: integer
                     example: 12
-                  user_id:
+                  user:
                     type: integer
                     example: 564
                   word:
@@ -109,7 +109,7 @@ paths:
                   session_id:
                     type: integer
                     example: 12
-                  user_id:
+                  user:
                     type: integer
                     example: 564
                   word:
@@ -135,7 +135,7 @@ paths:
                   session_id:
                     type: integer
                     example: 12
-                  user_id:
+                  user:
                     type: integer
                     example: 564
                   word:
@@ -160,7 +160,7 @@ paths:
       summary: Returns a word with a better score than the precised value.
       parameters:
         - in: query
-          name: user_id
+          name: user
           required: true
           schema:
             type: string
@@ -189,7 +189,7 @@ paths:
                   session_id:
                     type: integer
                     example: 12
-                  user_id:
+                  user:
                     type: integer
                     example: 564
                   word:
@@ -209,7 +209,7 @@ paths:
                   session_id:
                     type: integer
                     example: 12
-                  user_id:
+                  user:
                     type: integer
                     example: 564
                   error:
@@ -231,15 +231,14 @@ paths:
               schema: 
                 type: string
                 default: "Internal error: baseline not found."
-
-  /hint/nb-letters:
+  /hint/available:
     get:
       tags: 
         - Hints
       summary: Returns the number of letters of the word to guess.
       parameters:
         - in: query
-          name: user_id
+          name: user
           required: true
           schema:
             type: string
@@ -261,7 +260,43 @@ paths:
                   session_id:
                     type: integer
                     example: 12
-                  user_id:
+                  user:
+                    type: integer
+                    example: 564
+                  nb_letters:
+                    type: integer
+                    example: 7
+
+  /hint/nb-letters:
+    get:
+      tags: 
+        - Hints
+      summary: Returns the number of letters of the word to guess.
+      parameters:
+        - in: query
+          name: user
+          required: true
+          schema:
+            type: string
+          description: TODO
+        - in: query
+          name: session_id
+          required: true
+          schema:
+            type: integer
+          description: Current session (to know the word to guess).
+      responses:
+        '200':    # status code
+          description: The number of letters was found
+          content:
+            application/json:
+              schema: 
+                type: object
+                properties:
+                  session_id:
+                    type: integer
+                    example: 12
+                  user:
                     type: integer
                     example: 564
                   nb_letters:
@@ -283,7 +318,7 @@ paths:
       summary: Returns the number of syllables of the word to guess.
       parameters:
         - in: query
-          name: user_id
+          name: user
           required: true
           schema:
             type: string
@@ -305,7 +340,7 @@ paths:
                   session_id:
                     type: integer
                     example: 12
-                  user_id:
+                  user:
                     type: integer
                     example: 564
                   nb_syllables:
@@ -335,7 +370,7 @@ paths:
       summary: Returns the type of the word to guess.
       parameters:
         - in: query
-          name: user_id
+          name: user
           required: true
           schema:
             type: string
@@ -357,7 +392,7 @@ paths:
                   session_id:
                     type: integer
                     example: 12
-                  user_id:
+                  user:
                     type: integer
                     example: 564
                   type:
@@ -380,32 +415,43 @@ paths:
                 type: string
                 default: "Internal error: baseline not found."
 
-  /user:
+  /hint/first-letter:
     get:
       tags: 
-        - Users
-      summary: Returns the User ID given its name and tag.
+        - Hints
+      summary: Returns the number of letters of the word to guess.
       parameters:
         - in: query
-          name: user_name
+          name: user
           required: true
           schema:
             type: string
           description: TODO
         - in: query
-          name: user_tag
+          name: session_id
           required: true
           schema:
             type: integer
-          description: TODO
+          description: Current session (to know the word to guess).
       responses:
         '200':    # status code
-          description: TODO
+          description: The number of letters was found
           content:
             application/json:
               schema: 
                 type: object
+                properties:
+                  session_id:
+                    type: integer
+                    example: 12
+                  user:
+                    type: integer
+                    example: 564
+                  nb_letters:
+                    type: integer
+                    example: 7
 
+  /user:
     post:
       tags: 
         - Users
@@ -432,7 +478,7 @@ paths:
       summary: Returns the ranking of the range asked for.
       parameters:
         - in: query
-          name: user_id
+          name: user
           required: true
           schema:
             type: string
@@ -470,7 +516,7 @@ paths:
       summary: Returns the rank of the user.
       parameters:
         - in: query
-          name: user_id
+          name: user
           required: true
           schema:
             type: string
@@ -496,7 +542,7 @@ paths:
       summary: Post the given score as the final score of the player.
       parameters:
         - in: query
-          name: user_id
+          name: user
           required: true
           schema:
             type: string
@@ -522,7 +568,7 @@ paths:
       summary: Returns the list of past attempts.
       parameters:
         - in: query
-          name: user_id
+          name: user
           required: true
           schema:
             type: string
