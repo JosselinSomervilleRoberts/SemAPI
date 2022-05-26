@@ -1,6 +1,5 @@
 import sys
 import os
-from torch import ScriptModuleSerializer
 from tqdm import tqdm
 sys.path.append(os.path.abspath('../'))
 from connexion import DbConnexion
