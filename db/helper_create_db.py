@@ -30,7 +30,7 @@ CREATE TABLE fr_sessions (
 	
 	CONSTRAINT fk_orthos
   	    	FOREIGN KEY(ortho_id)
-			REFERENCES orthos(ortho_id )
+			REFERENCES fr_orthos(ortho_id )
 			ON DELETE CASCADE
 );
 
