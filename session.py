@@ -1,4 +1,4 @@
-from __future__ import annotations
+#from __future__ import annotations
 from connexion import DbConnexion
 from ortho import Ortho
 from lemma import Lemma
@@ -18,7 +18,7 @@ class Rectification:
         self.affected_lemmas = {}
         print("Rectify %s: %f -> %f (r = %f)" % (self.lemma_rectified, self.old_score, self.new_score, self.similarity_min))
 
-    def LoadRectification(self, session: Session) -> List[int]:
+    def LoadRectification(self, session) -> List[int]:
         return self.LoadClosestLemmas(session.db)
 
     def LoadClosestLemmas(self, db: DbConnexion) -> List[int]:

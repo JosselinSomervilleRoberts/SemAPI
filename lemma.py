@@ -1,4 +1,4 @@
-from __future__ import annotations
+#from __future__ import annotations
 import numpy as np
 from word_utils import remove_accents
 from connexion import DbConnexion
@@ -24,7 +24,7 @@ class Lemma:
         self.freq = data['freq']
         self.vector = data['vector']
 
-    def load_all(db: DbConnexion) -> List[Lemma]:
+    def load_all(db: DbConnexion):# -> List[Lemma]:
         LIMIT = 5000
         last_id = -1
         lemmas = []
@@ -90,19 +90,19 @@ class Lemma:
                             ("%" + word_na + "%",))
         self.load_from_db_res(db)
         
-    def __eq__(self, other: Lemma) -> bool:
+    def __eq__(self, other) -> bool:
         if not isinstance(other, Lemma):
             raise Exception("Lemma are only comparable to Lemma, not to {0}".format(type(other)))
         else:
             return self.id.__eq__(other.id)
 
-    def __gt__(self, other: Lemma) -> bool:
+    def __gt__(self, other) -> bool:
         if not isinstance(other, Lemma):
             raise Exception("Lemma are only comparable to Lemma, not to {0}".format(type(other)))
         else:
             return self.comparator.__gt__(other.comparator)
 
-    def __lt__(self, other: Lemma) -> bool:
+    def __lt__(self, other) -> bool:
         if not isinstance(other, Lemma):
             raise Exception("Lemma are only comparable to Lemma, not to {0}".format(type(other)))
         else:

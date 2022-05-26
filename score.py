@@ -1,4 +1,4 @@
-from __future__ import annotations
+#from __future__ import annotations
 from typing import Tuple
 from lemma import Lemma
 from scipy.spatial import distance
@@ -11,19 +11,19 @@ class Score:
         self.value = value_
         self.text = text_
 
-    def __eq__(self, other: Score) -> bool:
+    def __eq__(self, other) -> bool:
         if not isinstance(other, Score):
             raise Exception("Score are only comparable to Score, not to {0}".format(type(other)))
         else:
             return self.value.__eq__(self.value)
 
-    def __gt__(self, other: Score) -> bool:
+    def __gt__(self, other) -> bool:
         if not isinstance(other, Score):
             raise Exception("Score are only comparable to Score, not to {0}".format(type(other)))
         else:
             return self.value.__gt__(other.value)
 
-    def __lt__(self, other: Score) -> bool:
+    def __lt__(self, other) -> bool:
         if not isinstance(other, Score):
             raise Exception("Score are only comparable to Score, not to {0}".format(type(other)))
         else:
@@ -35,7 +35,7 @@ class Score:
     def __repr__(self) -> str:
         return str(self)
 
-    def GetFromValueAndRank(value: float, rank: int) -> Score:
+    def GetFromValueAndRank(value: float, rank: int):# -> Score:
         text = "Mot non trouvé"
         if rank <= 10:
             text = "Top 10"
@@ -53,10 +53,10 @@ class Score:
             text = "Rien à voir"
         return Score(value, text)
 
-    def ComputeSimilarity(lemma: Lemma, session: Session) -> float:
+    def ComputeSimilarity(lemma: Lemma, session) -> float:
         return 1 - distance.cosine(lemma.vector, session.word.lemma.vector)
 
-    def ComputeSimpleValueFromSimilarityAndRank(session: Session, similarity: float, rank: int) -> float:
+    def ComputeSimpleValueFromSimilarityAndRank(session, similarity: float, rank: int) -> float:
         RANK_THRESHOLD = min(Score.RANK_THRESHOLD_MAX, len(session.closest_lemmas))
         RANK_SCORE_MIN = 0.6
         if rank == -1:
@@ -82,19 +82,19 @@ class Score:
         rank_coefficient_mix = 0.2 + 0.5 * (1. - rank_frac)**2
         return 0.99 * (rank_score * rank_coefficient_mix + similarity_score * (1 - rank_coefficient_mix))
 
-    def ComputeSimpleValueFromSession(lemma: Lemma, session: Session) -> float:
+    def ComputeSimpleValueFromSession(lemma: Lemma, session) -> float:
         similarity = Score.ComputeSimilarity(lemma, session)
         rank = session.GetRank(lemma)
         return Score.ComputeSimpleValueFromSimilarityAndRank(session, similarity, rank)
 
 
-    def ComputeSimpleValueAndSimilarityFromSession(lemma: Lemma, session: Session) -> Tuple[float, float]:
+    def ComputeSimpleValueAndSimilarityFromSession(lemma: Lemma, session) -> Tuple[float, float]:
         similarity = Score.ComputeSimilarity(lemma, session)
         rank = session.GetRank(lemma)
         score_value = Score.ComputeSimpleValueFromSimilarityAndRank(session, similarity, rank)
         return (similarity, score_value)
 
-    def ComputeRectifiedValueFromSession(lemma: Lemma, session: Session) -> float:
+    def ComputeRectifiedValueFromSession(lemma: Lemma, session) -> float:
         base_score = Score.ComputeSimpleValueFromSession(lemma, session)
         if base_score == 1: # The correct word, then no rectification
             return base_score

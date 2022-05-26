@@ -1,4 +1,4 @@
-from __future__ import annotations
+#from __future__ import annotations
 from word_utils import lemmatize, isword, correct, remove_accents
 from lemma import Lemma
 import numpy as np
@@ -106,7 +106,7 @@ class Ortho:
                             ("%" + word_na + "%",))
         self.load_from_db_res(db)
 
-    def load_all(db: DbConnexion) -> List[Ortho]:
+    def load_all(db: DbConnexion):# -> List[Ortho]:
         LIMIT = 5000
         last_id = -1
         words = []
@@ -135,19 +135,19 @@ class Ortho:
         print("")
         return words
         
-    def __eq__(self, other: Ortho) -> bool:
+    def __eq__(self, other) -> bool:
         if not isinstance(other, Ortho):
             raise Exception("Ortho are only comparable to Ortho, not to {0}".format(type(other)))
         else:
             return self.id.__eq__(self.id)
 
-    def __gt__(self, other: Ortho) -> bool:
+    def __gt__(self, other) -> bool:
         if not isinstance(other, Ortho):
             raise Exception("Ortho are only comparable to Ortho, not to {0}".format(type(other)))
         else:
             return self.comparator.__gt__(other.comparator)
 
-    def __lt__(self, other: Ortho) -> bool:
+    def __lt__(self, other) -> bool:
         if not isinstance(other, Ortho):
             raise Exception("Ortho are only comparable to Ortho, not to {0}".format(type(other)))
         else:
@@ -161,7 +161,7 @@ class Ortho:
     def __repr__(self) -> str:
         return str(self)
 
-    def get_corrected(self, db: DbConnexion) -> Ortho:
+    def get_corrected(self, db: DbConnexion):# -> Ortho:
         word_corrected = correct(self.ortho)
         if word_corrected == self.ortho:
             return None
