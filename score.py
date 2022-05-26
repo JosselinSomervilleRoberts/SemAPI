@@ -113,4 +113,4 @@ class Score:
                 score += coef * rectification.affected_lemmas[lemma.id]
                 if score > 0.99:
                     return 0.99
-        return score
+        return max(0, score)
