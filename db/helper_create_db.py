@@ -21,7 +21,18 @@ if __name__ == "__main__":
 );
 
 
-
+CREATE TABLE fr_sessions (
+	session_id serial PRIMARY KEY,
+	ortho_id serial UNIQUE NOT NULL,
+	utc_start bigserial,
+	utc_stop bigserial,
+	difficulty smallint DEFAULT 1,
+	
+	CONSTRAINT fk_orthos
+  	    	FOREIGN KEY(ortho_id)
+			REFERENCES orthos(ortho_id )
+			ON DELETE CASCADE
+);
 
 
 CREATE TABLE users (
@@ -133,21 +144,6 @@ CREATE TABLE activity (
 				ON DELETE CASCADE
 );
 
-
-
-
-CREATE TABLE fr_sessions (
-	session_id serial PRIMARY KEY,
-	ortho_id serial UNIQUE NOT NULL,
-	utc_start bigserial,
-	utc_stop bigserial,
-	difficulty smallint DEFAULT 1,
-	
-	CONSTRAINT fk_orthos
-  	    	FOREIGN KEY(ortho_id)
-			REFERENCES orthos(ortho_id )
-			ON DELETE CASCADE
-);
 
 CREATE TABLE fr_scores_computed (
 	session_id serial NOT NULL,
