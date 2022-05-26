@@ -178,7 +178,6 @@ def ExecuteRequest(function: Callable, request_method: str,
          return error.args[0], error.args[1]
     
     res, status = function(args)
-    print(res, status)
     try:
         LogRequest(args['user_id'], request_method, request_route, request_args, status)
     except Exception as error:
