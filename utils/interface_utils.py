@@ -2,10 +2,10 @@ import os, sys
 FILE_PATH = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(FILE_PATH, '../'))
 
-from session import Session
-from ortho import Ortho
-from connexion import DbConnexion
-from typing import List, Dict
+from game.session import Session
+from game.ortho import Ortho
+from db.connexion import DbConnexion
+from typing import List, Dict, Callable
 
 
 # Prints the score an ortho given a session
@@ -47,7 +47,7 @@ def AskForOrthoUntilValid(db: DbConnexion,
             print("Error:", error)
 
 # Repeats a callback until the user wants to stop
-def RepeatUntilUserWantToStop(callback: function,
+def RepeatUntilUserWantToStop(callback: Callable,
                                 question_continue: str,
                                 args: Dict = None):
     def callback_with_args():
@@ -78,7 +78,7 @@ def RepeatUntilUserWantToStop(callback: function,
             continuer = False
 
 # Repeats a callback until the callback returns False
-def RepeatUntilCallbackReturnsFalse(callback: function):
+def RepeatUntilCallbackReturnsFalse(callback: Callable):
     continuer = True
     while continuer:
         continuer = callback()

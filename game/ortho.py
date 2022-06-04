@@ -1,6 +1,6 @@
 import os, sys
 FILE_PATH = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.join(FILE_PATH, '../../'))
+sys.path.append(os.path.join(FILE_PATH, '../'))
 
 from utils.word_utils import isword, correct, remove_accents
 from game.lemma import Lemma
