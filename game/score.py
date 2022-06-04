@@ -1,6 +1,9 @@
-#from __future__ import annotations
+import os, sys
+FILE_PATH = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(FILE_PATH, '../../'))
+
 from typing import Tuple
-from lemma import Lemma
+from game.lemma import Lemma
 from scipy.spatial import distance
 
 class Score:

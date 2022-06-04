@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import psycopg2
 import os
-from dotenv import load_dotenv
 
 class DbConnexion:
 

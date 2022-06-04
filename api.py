@@ -1,30 +1,26 @@
 # -*- coding: utf-8 -*-
 import flask
 from flask import request, jsonify
-from data_manager import DataManager
-from connexion import DbConnexion
-from ortho import Ortho
-from datetime import datetime
 import os
 from dotenv import load_dotenv
-from word_utils import correct
 from flask_cors import CORS
 import numpy as np
 from typing import Dict, List, Callable, Tuple
 from werkzeug.datastructures import ImmutableMultiDict
-from session import Session
+
+from db.data_manager import DataManager
+from db.connexion import DbConnexion
+from game.ortho import Ortho
+from game.session import Session
+from utils.time_utils import current_time_s, current_utc_ms
+from utils.word_utils import correct
+
 
 app = flask.Flask(__name__)
 CORS(app)
 dm = None
 db = None
 
-
-def current_utc_ms():
-    return int(1000.0 * datetime.now().timestamp())
-
-def current_time_s():
-    return int(datetime.now().timestamp()) + 3600 * 2
 
 def current_session_id():
     global db, dm

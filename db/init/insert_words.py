@@ -1,11 +1,12 @@
+import os, sys
+FILE_PATH = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(FILE_PATH, '../../'))
+
 import csv
-import sys
-import os
 from tqdm import tqdm
-sys.path.append(os.path.abspath('../'))
-from connexion import DbConnexion
-from word_utils import remove_accents, gensim_get_vector, load_gensim
 from dotenv import load_dotenv
+from db.connexion import DbConnexion
+from utils.word_utils import remove_accents
 
 
 def load():
@@ -35,7 +36,7 @@ def load():
 
 
     # Open dataset people
-    tsv_file = open("../data/people.tsv", "r", encoding="utf-8")
+    tsv_file = open("data/pantheon.tsv", "r", encoding="utf-8")
     print("Counting lines people... ", end='')
     row_count = sum(1 for row in tsv_file)  # fileObject is your csv.reader
     print(row_count)
@@ -92,7 +93,7 @@ def load():
 
 
     # Open dataset cities
-    tsv_file = open("../data/villes_france.csv", "r", encoding="utf-8")
+    tsv_file = open("data/villes_france.csv", "r", encoding="utf-8")
     print("Counting lines cities (VILLE_THRESHOD = %d) ... " % VILLE_THRESHOD, end='')
     row_count = sum(1 for row in tsv_file)  # fileObject is your csv.reader
     print(row_count)
@@ -129,7 +130,7 @@ def load():
 
 
     # Open dataset countries
-    tsv_file = open("../data/etats_utf8.csv", "r", encoding="utf-8")
+    tsv_file = open("data/etats_utf8.csv", "r", encoding="utf-8")
     print("Counting lines etats... ", end='')
     row_count = sum(1 for row in tsv_file)  # fileObject is your csv.reader
     print(row_count)
@@ -179,7 +180,7 @@ def load():
 
 
     # Open dataset words
-    tsv_file = open("../data/Lexique383.tsv", "r", encoding="utf-8")
+    tsv_file = open("data/Lexique383.tsv", "r", encoding="utf-8")
     print("Counting lines lexique... ", end='')
     row_count = sum(1 for row in tsv_file)  # fileObject is your csv.reader
     print(row_count)
@@ -219,7 +220,7 @@ def load():
     db = DbConnexion()
     db.connect()
     from gensim.models import KeyedVectors
-    model = KeyedVectors.load_word2vec_format("../data/frWac_no_postag_no_phrase_700_skip_cut50.bin", binary=True, unicode_errors="ignore")
+    model = KeyedVectors.load_word2vec_format("data/frWac_no_postag_no_phrase_700_skip_cut50.bin", binary=True, unicode_errors="ignore")
 
     # INSERT INTO DB
     lemmas = {}
@@ -241,8 +242,9 @@ def load():
         try:
             vec_lemma = model[lemma].tolist()
         except Exception as e:
-            if i >= nb_cities + nb_people_and_name:
-                print("Lemma %s not known by gensim." % lemma, e)
+            pass
+            # if i >= nb_cities + nb_people_and_name:
+            #    print("Lemma %s not known by gensim." % lemma, e)
 
         if not vec_lemma is None:
             # Get the Lemma ID and insert it if necessary

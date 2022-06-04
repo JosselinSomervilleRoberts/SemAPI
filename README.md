@@ -7,22 +7,7 @@ Josselin Somerville Roberts - All Rights Reserved
 ### Dependencies
 To install the API:
 ```bash
-pip3 install os
-pip3 install datetime
-pip3 install tqdm
-pip3 install random
-pip3 install numpy
-pip3 install psycopg2
-pip3 install python-dotenv
-pip3 install flask
-pip3 install -U flask-cors
-pip3 install -U pip setuptools wheel
-pip3 instll cython
-pip3 install spacy
-pip3 install scipy
-pip3 install fasttext
-pip3 install pyspellchecker
-python3 -m spacy download fr_core_news_md
+pip3 install -r requirements.txt
 ```
 
 ### Populating the database

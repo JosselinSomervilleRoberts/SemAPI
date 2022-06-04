@@ -1,10 +1,14 @@
-#from __future__ import annotations
-from connexion import DbConnexion
-from ortho import Ortho
-from lemma import Lemma
-from score import Score
+import os, sys
+FILE_PATH = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(FILE_PATH, '../../'))
+
+from db.connexion import DbConnexion
+from game.ortho import Ortho
+from game.lemma import Lemma
+from game.score import Score
 from tqdm import tqdm
 from typing import List, Dict
+from utils.time_utils import start_current_utc_s
 import random
 
 
@@ -271,6 +275,27 @@ class Session:
                                 (self.id,))
         self.db.connexion.commit()
 
+    def FindNextAvailableUtcStart(self) -> int:
+        start_utc = start_current_utc_s() - 3600 * 24
+        utc_used = True
+        while utc_used:
+            utc_used = False
+            self.db.cursor.execute("SELECT * FROM public.fr_sessions WHERE utc_start = %s", (start_utc,))
+            if self.db.cursor.fetchone() is not None:
+                utc_used = True
+                start_utc += 3600 * 24
+        return start_utc
+
+
+    def SaveToDb(self, start_utc = None):
+        self.SaveRectifications()
+        if start_utc is None:
+            start_utc = self.FindNextAvailableUtcStart(self)
+        self.db.cursor.execute("UPDATE public.fr_sessions SET utc_start = %s, utc_stop = %s WHERE session_id = %s",
+                            (start_utc, start_utc + 3600 * 24, self.id))
+        self.db.connexion.commit()
+
+
     def GetBestLemmas(self, n):
         self.db.cursor.execute("""SELECT l.lemma_id, score, similarity, lemma
                                 FROM public.fr_scores_computed AS s 
@@ -317,3 +342,38 @@ class Session:
         ortho_id = int(res[0])
         ortho.load_from_id(self.db, ortho_id)
         return ortho
+
+
+    def GetRandomSession(db: DbConnexion, lemmas: List[Lemma] = None):
+        # Get orthos that are frequent
+        db.cursor.execute("""SELECT ortho_id, lemma_id FROM fr_orthos
+                            ORDER BY freq DESC LIMIT 5000""")
+        orthos_available = db.cursor.fetchall()
+        random.shuffle(orthos_available)
+
+        # Get all the lemmas already used in previous sessions
+        db.cursor.execute("""SELECT o.lemma_id FROM fr_sessions AS s
+                            JOIN fr_orthos AS o
+                            ON o.ortho_id = s.ortho_id""")
+        lemmas_used = set()
+        res = db.cursor.fetchall()
+        for row in res:
+            lemma_id = int(row[0])
+            lemmas_used.add(lemma_id)
+
+        # Choose the first ortho not already used
+        ortho_id_session = -1
+        count = 0
+        while ortho_id_session < 0 and count < 5000:
+            ortho_id = int(orthos_available[count][0])
+            lemma_id = int(orthos_available[count][1])
+            if lemma_id not in lemmas_used:
+                ortho_id_session = ortho_id
+            count += 1
+
+        # Create the session
+        ortho = Ortho()
+        ortho.load_from_id(db, ortho_id_session)
+        session = Session(db)
+        session.CreateSession(ortho, lemmas)
+        return session

@@ -1,5 +1,10 @@
-from connexion import DbConnexion
-from session import Session
+import os, sys
+FILE_PATH = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(FILE_PATH, '../../'))
+
+from db.connexion import DbConnexion
+from game.session import Session
+
 
 class DataManager:
 
