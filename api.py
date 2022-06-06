@@ -310,7 +310,7 @@ def session_id(args):
             res_request["can_continue"] = yesterday_id
         elif GetHasPlayedButHasNotWon(yesterday_id, user_id):
             try:
-                db.cursor.execute("""SELECT o.ortho FROM orthos AS o
+                db.cursor.execute("""SELECT o.ortho FROM fr_orthos AS o
                                     JOIN fr_sessions AS s
                                     ON s.ortho_id = o.ortho_id
                                     WHERE s.session_id = %s""", (yesterday_id,))
