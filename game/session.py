@@ -319,21 +319,31 @@ class Session:
                                 JOIN public.fr_lemmas AS l 
                                 ON s.lemma_id = l.lemma_id 
                                 WHERE s.session_id = %s
-                                AND score >= %s AND score < %s
-                                ORDER BY score DESC LIMIT %s""",
-                                (self.id, score_min, score_min + 0.02, 10))
+                                AND score >= %s
+                                AND LEFT(l.type,3) != %s
+                                AND LEFT(l.type,3) != %s AND LEFT(l.type,3) != %s
+                                ORDER BY score ASC LIMIT %s""",
+                                (self.id, score_min, "PRE", "PRO", "ART", 10))
         res = self.db.cursor.fetchall()
         if len(res) == 0:
             raise Exception("No clue found.")
-        row = random.choice(res)
+        score_min_found = res[0][1]
+        row = random.choices(res, weights=[1/(0.01 + lemma[1] - score_min_found)**2 for lemma in res], k=1)[0]
         lemma_id = int(row[0])
         lemma = Lemma()
         lemma.load_from_id(self.db, lemma_id)
-
-        self.db.cursor.execute("""SELECT ortho_id FROM public.fr_orthos
+        
+        if lemma.type == "VER": # if it is a verb, take the infinitive
+            self.db.cursor.execute("""SELECT ortho_id FROM public.fr_orthos
+                                WHERE ortho = %s
+                                ORDER BY freq DESC LIMIT 1""",
+                                (lemma.lemma, ))
+        else: # otherwise the ortho with the highest frequency
+            self.db.cursor.execute("""SELECT ortho_id FROM public.fr_orthos
                                 WHERE lemma_id = %s
                                 ORDER BY freq DESC LIMIT 1""",
                                 (lemma_id, ))
+
         res = self.db.cursor.fetchone()
         if res is None:
             raise Exception("No ortho found corresponding to lemma: %s." % lemma.lemma)
