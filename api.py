@@ -167,6 +167,7 @@ def PreProcessArgs(args: ImmutableMultiDict, session_required: bool = False, req
 
 def BuildErrorResponse(infos: Dict, error: Exception, handled = False) -> Response:
     response = infos
+    print(infos)
     print(type(error), error)
     try:
         if hasattr(error, "args") and len(error.args) >= 2:
@@ -174,7 +175,10 @@ def BuildErrorResponse(infos: Dict, error: Exception, handled = False) -> Respon
         elif type(error) == tuple and len(error) >= 2:
             response["error"] = {"code": error[1], "handled": handled, "info": error[0]}
         else:
-            response["error"] = {"code": 500, "handled": handled, "info": error}
+            response["error"] = {"code": 500, "handled": handled, "info": str(error)}
+        print("JSONIFY")
+        print(response)
+        print("")
         return jsonify(response)
     except Exception as e:
         response["error"] = {"code": 500, "handled": handled, "info": "Additional error in BuildErrorResponse.", "error_builder": e, "error_original": error}
@@ -184,12 +188,14 @@ def BuildErrorResponse(infos: Dict, error: Exception, handled = False) -> Respon
 def ExecuteRequest(function: Callable, request_method: str,
                     request_route: str, request_args: ImmutableMultiDict, 
                     session_required: bool = False, required: List[str ] = None) -> Tuple[Dict, int]:
-    args = None
+    args, args_error = None, None
     try:
         args = PreProcessArgs(request_args, session_required, required)
+        args_error = args.copy()
+        args_error.pop('session', None)
     except Exception as error:
          return BuildErrorResponse({"api_file": os.path.basename(__file__),
-                        "request": {"method": request_method, "route": request_route, "args": request_args}, 
+                        "request": {"method": request_method, "route": request_route, "args": request_args.to_dict(flat=False)}, 
                         "function": {"name": PreProcessArgs.__name__, "session_required": session_required, "args_required": required}},
                         error), 500
     
@@ -200,20 +206,21 @@ def ExecuteRequest(function: Callable, request_method: str,
             ok = False
             error = res
             handled = True
-    except Exception as error:
+    except Exception as e:
         ok = False
+        error = e
 
     if not ok:
         return BuildErrorResponse({"api_file": os.path.basename(__file__),
-                        "request": {"method": request_method, "route": request_route, "args": request_args}, 
+                        "request": {"method": request_method, "route": request_route, "args": request_args, "processed_args": args_error}, 
                         "function": {"name": function.__name__, "session_required": session_required, "args_required": required}},
                         error, handled), 500
     try:
         LogRequest(args['user_id'], request_method, request_route, request_args, status, user_needed=True)
     except Exception as error:
         return BuildErrorResponse({"api_file": os.path.basename(__file__),
-                        "request": {"method": request_method, "route": request_route, "args": request_args}, 
-                        "function": {"name": LogRequest.__name__, "session_required": False, "args_required": {"user_id"}}},
+                        "request": {"method": request_method, "route": request_route, "args": request_args, "processed_args": args_error},
+                        "function": {"name": LogRequest.__name__, "session_required": False, "args_required": ["user_id"]}},
                         error), 500
     return res, status
 
@@ -323,6 +330,16 @@ def GetPlayerScore(session: Session, user_id: int) -> int:
     return GetNbAttempts(session.id, user_id) + GetAdditionalCost(session, user_id)
 
 
+
+@app.errorhandler(500)
+def handle_invalid_usage(error):
+    try:
+        response = jsonify(error.to_dict())
+        response.status_code = error.status_code
+        return response, 500
+    except:
+        return jsonify({"error": {"code": 500, "handled": False, "info": "Could not get error infos."},
+                        "function": {"name": "BuildErrorResponse"}}), 500
 
 
 @app.route('/session-id', methods=['GET'])
@@ -642,6 +659,10 @@ def user_session_infos(args):
         res_request['player_score'] = GetPlayerScore(session, user_id)
         res_request["active"] = GetIsStillActive(session.id, user_id)
         res_request['has_won'] = GetHasPlayedAndHasWon(session.id, user_id)
+
+        if not res_request["active"] and session.id < current_session_id():
+            res_request["word"] = session.word.ortho
+
         return jsonify(res_request), 200
     except Exception as e:
         db.rollback()
@@ -679,7 +700,7 @@ def final_score(args):
                                 WHERE session_id = %s AND user_id = %s""",
                                 (False, current_utc_ms(), session.id, user_id))
         db.connexion.commit()
-        return "", 200
+        return {"word": session.word.ortho}, 200
     except Exception as e:
         db.rollback()
         return "Internal Error: Could not insert final score. Error: %s" %e, 500

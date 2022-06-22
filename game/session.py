@@ -54,7 +54,6 @@ class Session:
         self.old_ranks = {}
         self.db = db_
 
-
     def ComputeAndInsertAllScores(self, lemmas: List[Lemma] = None) -> None:
         if lemmas is None:
             lemmas = Lemma.load_all(self.db)

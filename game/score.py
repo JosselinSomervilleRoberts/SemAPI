@@ -39,6 +39,7 @@ class Score:
         return str(self)
 
     def GetFromValueAndRank(value: float, rank: int):# -> Score:
+        value = max(0.001, value)
         text = "Mot non trouvé"
         if rank <= 10:
             text = "Top 10"
@@ -62,7 +63,7 @@ class Score:
     def ComputeSimpleValueFromSimilarityAndRank(session, similarity: float, rank: int) -> float:
         RANK_THRESHOLD = min(Score.RANK_THRESHOLD_MAX, len(session.closest_lemmas))
         RANK_SCORE_MIN = 0.6
-        if rank == -1:
+        if rank < 0:
             rank = RANK_THRESHOLD + 1
 
         # This is the correct word
@@ -71,7 +72,12 @@ class Score:
 
         # Not a close word
         if rank > RANK_THRESHOLD:
-            return similarity
+            # From -1 to 0 -> 0 to 0.02
+            # From 0 to session.similarity_last_closest_lemmas -> 0.02 to session.similarity_last_closest_lemmas
+            if similarity < 0:
+                return 0.02 * (1 + similarity)
+            else:
+                return 0.02 + (session.similarity_last_closest_lemmas - 0.02) * similarity / session.similarity_last_closest_lemmas
 
         # This is a close word
         # The score is computed based on two linear interpolations:
