@@ -167,8 +167,6 @@ def PreProcessArgs(args: ImmutableMultiDict, session_required: bool = False, req
 
 def BuildErrorResponse(infos: Dict, error: Exception, handled = False) -> Response:
     response = infos
-    print(infos)
-    print(type(error), error)
     try:
         if hasattr(error, "args") and len(error.args) >= 2:
             response["error"] = {"code": error.args[1], "handled": handled, "info": error.args[0]}
@@ -176,9 +174,6 @@ def BuildErrorResponse(infos: Dict, error: Exception, handled = False) -> Respon
             response["error"] = {"code": error[1], "handled": handled, "info": error[0]}
         else:
             response["error"] = {"code": 500, "handled": handled, "info": str(error)}
-        print("JSONIFY")
-        print(response)
-        print("")
         return jsonify(response)
     except Exception as e:
         response["error"] = {"code": 500, "handled": handled, "info": "Additional error in BuildErrorResponse.", "error_builder": e, "error_original": error}
@@ -222,6 +217,7 @@ def ExecuteRequest(function: Callable, request_method: str,
                         "request": {"method": request_method, "route": request_route, "args": request_args, "processed_args": args_error},
                         "function": {"name": LogRequest.__name__, "session_required": False, "args_required": ["user_id"]}},
                         error), 500
+    print("done")
     return res, status
 
 def GetUserFromNameAndTag(user_name: str, user_tag: int) -> str:
