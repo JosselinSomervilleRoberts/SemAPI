@@ -674,6 +674,8 @@ def user_session_infos(args):
         res_request['player_score'] = GetPlayerScore(session, user_id)
         res_request["active"] = GetIsStillActive(session.id, user_id)
         res_request['has_won'] = GetHasPlayedAndHasWon(session.id, user_id)
+        hints_available_after = [hint['status'] == "available" for hint in res_request['hints']]
+        res_request["hint_available"] = True in hints_available_after
 
         if not res_request["active"] and obj["attempt"] >= 1 and session.id <= current_session_id():
             res_request["word"] = session.word.ortho
