@@ -94,8 +94,8 @@ class Ortho:
             raise Exception("Cannot load Ortho from word if word is not set. (word: %s)" % (word))
         db.cursor.execute("""SELECT ortho_id, ortho, ortho_na, freq, number, genre, nb_syll, nb_letters, lemma_id
                             FROM public.fr_orthos 
-                            WHERE ortho_na = %s""",
-                            (word_na,))
+                            WHERE length(ortho_na) >= %s AND ortho_na = %s""",
+                            (len(word_na), word_na,))
         self.load_from_db_res(db)
 
     def load_like_word(self, db: DbConnexion, word: str) -> None:

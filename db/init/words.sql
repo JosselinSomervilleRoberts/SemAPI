@@ -54,6 +54,10 @@ CREATE TABLE IF NOT EXISTS fr_orthos (
 			ON DELETE CASCADE
 );
 
+/* Index to query faster */
+CREATE INDEX ON fr_orthos ((length(ortho_na)));
+CREATE INDEX ON fr_orthos (ortho_na);
+
 /* Stores the X lemmas most similar to lemma_id1 */
 CREATE TABLE IF NOT EXISTS fr_closest_lemmas (
 	lemma_id1 serial NOT NULL,
