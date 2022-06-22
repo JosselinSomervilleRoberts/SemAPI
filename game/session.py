@@ -6,6 +6,7 @@ from db.connexion import DbConnexion
 from game.ortho import Ortho
 from game.lemma import Lemma
 from game.score import Score
+from game.hint import Hint, HintFirstLetter, HintNbLetters, HintNbSylabbles, HintType, HintWord
 from tqdm import tqdm
 from typing import List, Dict
 from utils.time_utils import start_current_utc_s
@@ -53,6 +54,7 @@ class Session:
         self.ranks = {}
         self.old_ranks = {}
         self.db = db_
+        self.hints = []
 
     def ComputeAndInsertAllScores(self, lemmas: List[Lemma] = None) -> None:
         if lemmas is None:
@@ -104,6 +106,16 @@ class Session:
             return self.ranks[lemma.id]
         return Score.RANK_THRESHOLD_MAX + 1
 
+    def LoadHints(self):
+        self.hints = [
+            HintNbLetters(len(self.word.ortho)),
+            HintFirstLetter(self.word.ortho[0]),
+            HintType(self.word.lemma.type),
+            HintWord(0.8),
+            HintWord(0.9),
+        ]
+        if self.word.nb_syll is not None:
+            self.hints.append(HintNbSylabbles(self.word.nb_syll))
 
     def CreateSession(self, word_: Ortho, lemmas: List[Lemma] = None) -> None:
         self.id = None
@@ -143,6 +155,9 @@ class Session:
         # Compute ranks
         self.ComputeRanks()
 
+        # Load hints
+        self.LoadHints()
+
 
 
     def LoadFromSessionId(self, session_id_: int) -> None:
@@ -179,6 +194,9 @@ class Session:
 
         # Compute ranks
         self.ComputeRanks()
+
+        # Load hints
+        self.LoadHints()
 
 
     def CacheScore(self, lemma: Lemma, score: Score) -> None:

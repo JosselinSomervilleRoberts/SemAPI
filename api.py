@@ -8,11 +8,13 @@ import numpy as np
 from typing import Dict, List, Callable, Tuple
 from requests import Response
 from werkzeug.datastructures import ImmutableMultiDict
+import traceback
 
 from db.data_manager import DataManager
 from db.connexion import DbConnexion
 from game.ortho import Ortho
 from game.session import Session
+from game.hint import Hint, HintStatus
 from utils.time_utils import current_time_s, current_utc_ms
 from utils.word_utils import correct
 
@@ -174,10 +176,9 @@ def BuildErrorResponse(infos: Dict, error: Exception, handled = False) -> Respon
             response["error"] = {"code": error[1], "handled": handled, "info": error[0]}
         else:
             response["error"] = {"code": 500, "handled": handled, "info": str(error)}
-        return jsonify(response)
     except Exception as e:
         response["error"] = {"code": 500, "handled": handled, "info": "Additional error in BuildErrorResponse.", "error_builder": e, "error_original": error}
-        return jsonify(response)
+    return response
 
 
 def ExecuteRequest(function: Callable, request_method: str,
@@ -191,13 +192,13 @@ def ExecuteRequest(function: Callable, request_method: str,
         args_error = args.copy()
         args_error.pop('session', None)
     except Exception as error:
-         return BuildErrorResponse({"api_file": os.path.basename(__file__),
+         return jsonify(BuildErrorResponse({"api_file": os.path.basename(__file__),
                         "request": {"method": request_method, "route": request_route, "args": request_args.to_dict(flat=False)}, 
                         "function": {"name": PreProcessArgs.__name__, "session_required": session_required, "args_required": required}},
-                        error), 500
+                        error)), 500
     t1 = current_utc_ms()
     print(" ", t1 - t0, "ms")
-    print("- Running", function.__name__, "...")
+    print("   -> Running", function.__name__, "...")
 
     res, status, error, ok, handled = {}, 200, None, True, False
     try:
@@ -209,12 +210,14 @@ def ExecuteRequest(function: Callable, request_method: str,
     except Exception as e:
         ok = False
         error = e
+        status = 500
 
     if not ok:
-        return BuildErrorResponse({"api_file": os.path.basename(__file__),
+        resp = BuildErrorResponse({"api_file": os.path.basename(__file__),
                         "request": {"method": request_method, "route": request_route, "args": request_args, "processed_args": args_error}, 
                         "function": {"name": function.__name__, "session_required": session_required, "args_required": required}},
-                        error, handled), 500
+                        error, handled)
+        return jsonify(resp), resp["error"]["code"]
     
     t2 = current_utc_ms()
     print("   -> Function done in", t2 - t1, "ms")
@@ -223,10 +226,10 @@ def ExecuteRequest(function: Callable, request_method: str,
     try:
         LogRequest(args['user_id'], request_method, request_route, request_args, status, user_needed=True)
     except Exception as error:
-        return BuildErrorResponse({"api_file": os.path.basename(__file__),
+        return jsonify(BuildErrorResponse({"api_file": os.path.basename(__file__),
                         "request": {"method": request_method, "route": request_route, "args": request_args, "processed_args": args_error},
                         "function": {"name": LogRequest.__name__, "session_required": False, "args_required": ["user_id"]}},
-                        error), 500
+                        error)), 500
     t3 = current_utc_ms()
     print(" ", t3 - t2, "ms")
     return res, status
@@ -266,56 +269,27 @@ def GetHints(session: Session, user_id: int) -> Dict:
         used_hints[int(row[0])] = [int(row[1]), str(row[2])]
 
     hints = []
-    for hint_type in [0,1,2,3,80,90]:
-        already_used = (hint_type in used_hints)
-        obj = {}
-        obj["status"] = "unavailable"
-        obj["params"] = {}
+    status_args = {"nb_attempts": nb_attempts, "best_score": best_score}
+    for hint in session.hints:
+        hint_obj = {}
+        hint_obj["libelle"] = hint.libelle
+        hint_obj["code"] = hint.code
+        hint_obj["params"] = {}
+        already_used = (hint.type in used_hints)
+        if hint.type >= 20: # Word value
+            hint_obj["params"]["value"] = 0.01 * hint.type
+
         if already_used:
-            obj["status"] = "used"
-            obj["cost"] = int(used_hints[hint_type][0])
-            obj["value"] = str(used_hints[hint_type][1])
-
-        if hint_type == 0: # nb letters
-            obj['libelle'] = "Nombre de lettres"
-            obj['code'] = "/hint/nb-letters"
-            if not already_used and nb_attempts > 10:
-                obj["status"] = "available"
-                obj["cost"] = 5
-        elif hint_type == 1: # nb sylabble
-            obj['libelle'] = "Nombre de syllabes"
-            obj['code'] = "/hint/nb-syllables"
-            if not already_used and nb_attempts > 20 and session.word.nb_syll is not None:
-                obj["status"] = "available"
-                obj["cost"] = 5
-        elif hint_type == 2: # type
-            obj['libelle'] = "Nature"
-            obj['code'] = "/hint/type"
-            if not already_used and nb_attempts > 20:
-                obj["status"] = "available"
-                obj["cost"] = 8
-        elif hint_type == 3: # first letter
-            obj['libelle'] = "Première lettre"
-            obj['code'] = "/hint/first-letter"
-            if not already_used and nb_attempts > 30:
-                obj["status"] = "available"
-                obj["cost"] = 10
-        elif hint_type == 80:
-            obj['libelle'] = "Mot à %d" % hint_type
-            obj['code'] = "/hint"
-            obj["params"]["value"] = 0.8
-            if not already_used and nb_attempts > 40 and best_score < 0.65:
-                obj["status"] = "available"
-                obj["cost"] = 20
-        elif hint_type == 90:
-            obj['libelle'] = "Mot à %d" % hint_type
-            obj['code'] = "/hint"
-            obj["params"]["value"] = 0.9
-            if not already_used and nb_attempts > 70 and best_score < 0.75:
-                obj["status"] = "available"
-                obj["cost"] = 30
-        hints.append(obj)
-
+            hint_obj["status"] = "used"
+            hint_obj["cost"] = int(used_hints[hint.type][0])
+            hint_obj["value"] = str(used_hints[hint.type][1])
+        else:
+            hint.CheckStatus(status_args)
+            if hint.status == HintStatus.Unavailable: hint_obj["status"] = "unavailable"
+            elif hint.status == HintStatus.Available: hint_obj["status"] = "available"
+            else: hint_obj["status"] = "undefined"
+            hint_obj["cost"] = hint.cost
+        hints.append(hint_obj)
     return hints
 
 def GetAdditionalCost(session: Session, user_id: int) -> int:
@@ -345,7 +319,7 @@ def handle_invalid_usage(error):
         response.status_code = error.status_code
         return response, 500
     except:
-        return jsonify({"error": {"code": 500, "handled": False, "info": "Could not get error infos."},
+        return jsonify({"error": {"traceback": traceback.format_exc(), "code": 500, "handled": False, "info": "Could not get error infos."},
                         "function": {"name": "BuildErrorResponse"}}), 500
 
 
@@ -446,8 +420,13 @@ def score(args):
                 return jsonify({"user": args['user'], "session_id": session.id, "word": word, "score": -1}), 404
 
     # Everything was fetched properly, let's compute the score
+    t1_5 = current_utc_ms()
+    print(" ", t1_5 - t1, "ms")
+    print("- Searching for hints...", end='')
+    hints_before = GetHints(session, user_id)
+    hints_available_before = [hint['status'] == "available" for hint in hints_before]
     t2 = current_utc_ms()
-    print(" ", t2 - t1, "ms")
+    print(" ", t2 - t1_5, "ms")
     print("- Searching for score...", end='')
     score = session.GetScoreFromLemma(word_object.lemma)
     t3 = current_utc_ms()
@@ -458,7 +437,6 @@ def score(args):
     res['user'] = args['user']
     res['session_id'] = session.id
     status = 200
-
     if word_corrected is None:
         res['word'] = word_object.ortho
         res['score'] = score.value
@@ -478,6 +456,19 @@ def score(args):
                                 WHERE session_id = %s AND user_id = %s""",
                                 (False, current_utc_ms(), session.id, user_id))
             db.connexion.commit()
+        
+        t4 = current_utc_ms()
+        print(" ", t4 - t3, "ms")
+        print("- Searching for hints...", end='')
+        hints_after = GetHints(session, user_id)
+        hints_available_after = [hint['status'] == "available" for hint in hints_after]
+        res["hint_available"] = True in hints_available_after
+        res["new_hint_available"] = []
+        for i in range(len(hints_available_after)):
+            if hints_available_after[i] and not hints_available_before[i]:
+                res["new_hint_available"].append(hints_after[i]["libelle"])
+        t5 = current_utc_ms()
+        print(" ", t5 - t4, "ms")
     else:
         res['word'] = word
         res['score'] = -1
@@ -486,9 +477,9 @@ def score(args):
         res['suggested_score_text'] = score.text
         res["player_score"] = GetPlayerScore(session, user_id)
         status = 201
+        t4 = current_utc_ms()
+        print(" ", t4 - t3, "ms")
 
-    t4 = current_utc_ms()
-    print(" ", t4 - t3, "ms")
     return jsonify(res), status
 
 
@@ -541,11 +532,13 @@ def ranking_all(args):
     index_start = int(args['index_start'])
     count = int(args['count'])
     
-    try:
+    try: # Those who have finished
         db.cursor.execute("""SELECT u.name, u.tag, s.score, s.nb_attempts, s.has_won, s.utc_date_ms
                             FROM final_scores AS s
                             JOIN users AS u
                             ON s.user_id = u.user_id
+                            JOIN activity AS a
+                            ON a.user_id = u.user_id AND s.session_id = a.session_id
                             WHERE s.session_id = %s
                             ORDER BY s.score DESC, s.nb_attempts DESC, s.utc_date_ms ASC
                             LIMIT %s OFFSET %s""",
@@ -566,7 +559,7 @@ def ranking_all(args):
             res.append(obj)
 
         n = len(res_query)
-        if n < count:
+        if n < count: # On going players
             try:
                 db.cursor.execute("""SELECT u.name, u.tag, MAX(s.score) AS maxx, COUNT(s.score)
                             FROM scores AS s
@@ -682,7 +675,7 @@ def user_session_infos(args):
         res_request["active"] = GetIsStillActive(session.id, user_id)
         res_request['has_won'] = GetHasPlayedAndHasWon(session.id, user_id)
 
-        if not res_request["active"] and session.id < current_session_id():
+        if not res_request["active"] and obj["attempt"] >= 1 and session.id <= current_session_id():
             res_request["word"] = session.word.ortho
 
         return jsonify(res_request), 200
@@ -728,6 +721,25 @@ def final_score(args):
         return "Internal Error: Could not insert final score. Error: %s" %e, 500
 
 
+def GetHintValue(args, code: str):
+    global db, dm
+    user_id = args['user_id']
+    session = args['session']
+
+    for hint in session.hints:
+        if hint.code == code:
+            best_score = GetBestScore(session, user_id)
+            nb_attempts = GetNbAttempts(session.id, user_id)
+            status_args = {"nb_attempts": nb_attempts, "best_score": best_score}
+            hint.CheckStatus(status_args)
+            if hint.status == HintStatus.Available:
+                value = hint.GetValue()
+                SaveUsedHint(session, user_id, hint.type, hint.cost, value)
+                return jsonify({"session_id": session.id, "user": args['user'], "value": value, "player_score": GetPlayerScore(session, user_id)}), 200
+            else:
+                raise Exception('Hint not available.', 400)
+    raise Exception('No hint matched the desired one.', 400)
+
 @app.route('/hint/available', methods=['GET'])
 def request_hint_available():
     return ExecuteRequest(hint_available, 'GET', '/hint/available', request.args, True)
@@ -746,13 +758,7 @@ def request_hint_nb_letters():
     return ExecuteRequest(hint_nb_letters, 'GET', '/hint/nb-letters', request.args, True)
 
 def hint_nb_letters(args):
-    global db, dm
-    user_id = args['user_id']
-    session = args['session']
-    value = str(session.word.nb_letters) + " lettres"
-    SaveUsedHint(session, user_id, 0, 5, value)
-    return jsonify({"session_id": session.id, "user": args['user'], "value": value, "player_score": GetPlayerScore(session, user_id)}), 200
-
+    return GetHintValue(args, '/hint/nb-letters')
 
 
 @app.route('/hint/nb-syllables', methods=['GET'])
