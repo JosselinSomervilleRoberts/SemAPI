@@ -184,6 +184,8 @@ def ExecuteRequest(function: Callable, request_method: str,
                     request_route: str, request_args: ImmutableMultiDict, 
                     session_required: bool = False, required: List[str ] = None) -> Tuple[Dict, int]:
     args, args_error = None, None
+    t0 = current_utc_ms()
+    print("- Parsing args...", end='')
     try:
         args = PreProcessArgs(request_args, session_required, required)
         args_error = args.copy()
@@ -193,7 +195,10 @@ def ExecuteRequest(function: Callable, request_method: str,
                         "request": {"method": request_method, "route": request_route, "args": request_args.to_dict(flat=False)}, 
                         "function": {"name": PreProcessArgs.__name__, "session_required": session_required, "args_required": required}},
                         error), 500
-    
+    t1 = current_utc_ms()
+    print(" ", t1 - t0, "ms")
+    print("- Running", function.__name__, "...")
+
     res, status, error, ok, handled = {}, 200, None, True, False
     try:
         res, status = function(args)
@@ -210,6 +215,11 @@ def ExecuteRequest(function: Callable, request_method: str,
                         "request": {"method": request_method, "route": request_route, "args": request_args, "processed_args": args_error}, 
                         "function": {"name": function.__name__, "session_required": session_required, "args_required": required}},
                         error, handled), 500
+    
+    t2 = current_utc_ms()
+    print("   -> Function done in", t2 - t1, "ms")
+    print("- Logging request...", end='')
+
     try:
         LogRequest(args['user_id'], request_method, request_route, request_args, status, user_needed=True)
     except Exception as error:
@@ -217,7 +227,8 @@ def ExecuteRequest(function: Callable, request_method: str,
                         "request": {"method": request_method, "route": request_route, "args": request_args, "processed_args": args_error},
                         "function": {"name": LogRequest.__name__, "session_required": False, "args_required": ["user_id"]}},
                         error), 500
-    print("done")
+    t3 = current_utc_ms()
+    print(" ", t3 - t2, "ms")
     return res, status
 
 def GetUserFromNameAndTag(user_name: str, user_tag: int) -> str:
@@ -377,6 +388,9 @@ def request_score():
 
 def score(args):
     global db, dm
+
+    t0 = current_utc_ms()
+    print("- Checking that session is active...", end='')
     
     # Get params
     word = args['word']
@@ -391,6 +405,9 @@ def score(args):
         return "Interal Error: %s" %e, 500
         
     # Load the word
+    t1 = current_utc_ms()
+    print(" ", t1 - t0, "ms")
+    print("- Searching for word...", end='')
     word_corrected = None
     word_object = Ortho()
     try:
@@ -429,7 +446,14 @@ def score(args):
                 return jsonify({"user": args['user'], "session_id": session.id, "word": word, "score": -1}), 404
 
     # Everything was fetched properly, let's compute the score
+    t2 = current_utc_ms()
+    print(" ", t2 - t1, "ms")
+    print("- Searching for score...", end='')
     score = session.GetScoreFromLemma(word_object.lemma)
+    t3 = current_utc_ms()
+    print(" ", t3 - t2, "ms")
+    print("- Building response...", end='')
+
     res = {}
     res['user'] = args['user']
     res['session_id'] = session.id
@@ -463,6 +487,8 @@ def score(args):
         res["player_score"] = GetPlayerScore(session, user_id)
         status = 201
 
+    t4 = current_utc_ms()
+    print(" ", t4 - t3, "ms")
     return jsonify(res), status
 
 
