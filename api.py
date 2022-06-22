@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from flask_cors import CORS
 import numpy as np
 from typing import Dict, List, Callable, Tuple
+from requests import Response
 from werkzeug.datastructures import ImmutableMultiDict
 
 from db.data_manager import DataManager
@@ -164,22 +165,56 @@ def PreProcessArgs(args: ImmutableMultiDict, session_required: bool = False, req
     return processed_args
 
 
+def BuildErrorResponse(infos: Dict, error: Exception, handled = False) -> Response:
+    response = infos
+    print(type(error), error)
+    try:
+        if hasattr(error, "args") and len(error.args) >= 2:
+            response["error"] = {"code": error.args[1], "handled": handled, "info": error.args[0]}
+        elif type(error) == tuple and len(error) >= 2:
+            response["error"] = {"code": error[1], "handled": handled, "info": error[0]}
+        else:
+            response["error"] = {"code": 500, "handled": handled, "info": error}
+        return jsonify(response)
+    except Exception as e:
+        response["error"] = {"code": 500, "handled": handled, "info": "Additional error in BuildErrorResponse.", "error_builder": e, "error_original": error}
+        return jsonify(response)
+
+
 def ExecuteRequest(function: Callable, request_method: str,
                     request_route: str, request_args: ImmutableMultiDict, 
-                    session_required: bool = False, required: List[str ]= None) -> Tuple[Dict, int]:
+                    session_required: bool = False, required: List[str ] = None) -> Tuple[Dict, int]:
     args = None
     try:
         args = PreProcessArgs(request_args, session_required, required)
     except Exception as error:
-         return error.args[0], error.args[1]
+         return BuildErrorResponse({"api_file": os.path.basename(__file__),
+                        "request": {"method": request_method, "route": request_route, "args": request_args}, 
+                        "function": {"name": PreProcessArgs.__name__, "session_required": session_required, "args_required": required}},
+                        error), 500
     
-    res, status = function(args)
-    print(res, status)
+    res, status, error, ok, handled = {}, 200, None, True, False
     try:
-        LogRequest(args['user_id'], request_method, request_route, request_args, status)
+        res, status = function(args)
+        if status == 400 or status == 500:
+            ok = False
+            error = res
+            handled = True
     except Exception as error:
-        print(error)
-        return error.args[0], error.args[1]
+        ok = False
+
+    if not ok:
+        return BuildErrorResponse({"api_file": os.path.basename(__file__),
+                        "request": {"method": request_method, "route": request_route, "args": request_args}, 
+                        "function": {"name": function.__name__, "session_required": session_required, "args_required": required}},
+                        error, handled), 500
+    try:
+        LogRequest(args['user_id'], request_method, request_route, request_args, status, user_needed=True)
+    except Exception as error:
+        return BuildErrorResponse({"api_file": os.path.basename(__file__),
+                        "request": {"method": request_method, "route": request_route, "args": request_args}, 
+                        "function": {"name": LogRequest.__name__, "session_required": False, "args_required": {"user_id"}}},
+                        error), 500
     return res, status
 
 def GetUserFromNameAndTag(user_name: str, user_tag: int) -> str:
