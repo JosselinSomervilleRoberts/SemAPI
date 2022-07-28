@@ -340,8 +340,10 @@ class Session:
                                 AND score >= %s
                                 AND LEFT(l.type,3) != %s
                                 AND LEFT(l.type,3) != %s AND LEFT(l.type,3) != %s
+                                AND NOT(l.lemma_na LIKE '%' + %s + '%')
+                                AND LENGTH(l.lemma_na) > 3
                                 ORDER BY score ASC LIMIT %s""",
-                                (self.id, score_min, "PRE", "PRO", "ART", 10))
+                                (self.id, score_min, "PRE", "PRO", "ART", self.word.ortho_na, 10))
         res = self.db.cursor.fetchall()
         if len(res) == 0:
             raise Exception("No clue found.")
@@ -372,9 +374,15 @@ class Session:
 
 
     def GetRandomSession(db: DbConnexion, lemmas: List[Lemma] = None):
-        # Get orthos that are frequent
-        db.cursor.execute("""SELECT ortho_id, lemma_id FROM fr_orthos
-                            ORDER BY freq DESC LIMIT 5000""")
+        # Get lemmas that are frequent
+        db.cursor.execute("""SELECT ortho_id, l.lemma_id FROM fr_orthos AS o
+                            JOIN fr_lemmas AS l
+                            ON l.lemma_id = o.lemma_id
+                            WHERE l.lemma_na = o.ortho_na
+                            AND LENGTH(l.lemma_na) > 3
+                            AND (l.type IN ('ADV', 'NOM', 'VER')
+                            OR LEFT(l.type,3) = 'ADJ')
+                            ORDER BY o.freq DESC LIMIT 5000""")
         orthos_available = db.cursor.fetchall()
         random.shuffle(orthos_available)
 
