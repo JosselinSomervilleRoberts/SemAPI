@@ -2,6 +2,8 @@
 
 Josselin Somerville Roberts - All Rights Reserved
 
+To learn more about the project, please visit: https://josselinsomervilleroberts.github.io/
+
 ## Getting started
 
 ### Dependencies
@@ -11,7 +13,7 @@ pip3 install -r requirements.txt
 ```
 
 ### Populating the database
-Download the folling dataset and place them in data with the following names:
+Download the following dataset and place them in data with the following names:
 
 - *wiki.fr.bin* (as ***data/wiki.fr.bin*** - Download the French *bin + text*) - Encoding of french words: <https://fasttext.cc/docs/en/pretrained-vectors.html>
 
